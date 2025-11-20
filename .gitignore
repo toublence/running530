@@ -1,0 +1,81 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Android (frontend/android/ has its own .gitignore)
+# Note: keystore files should stay outside VCS
+
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+
+frontend/android/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/app/build/
+frontend/android/local.properties
+
+# iOS
+ios/App/Pods/
+ios/App/build/
+ios/App/App.xcworkspace/xcuserdata/
+ios/App/App.xcodeproj/xcuserdata/
+ios/App/App.xcodeproj/project.xcworkspace/xcuserdata/
+ios/App/*.ipa
+ios/App/*.dSYM.zip
+ios/App/DerivedData/
+*.mobileprovision
+*.p12
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temporary files
+*.tmp
+*.temp
+uploads/
+scripts/.tools/

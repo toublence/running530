@@ -1,0 +1,51 @@
+{
+    "name": "running530-frontend",
+    "version": "0.1.0",
+    "private": true,
+    "scripts": {
+        "dev": "node ../scripts/run-android-env.mjs next dev",
+        "build": "node ../scripts/run-android-env.mjs next build",
+        "serve": "node ../scripts/run-android-env.mjs npx serve -s .next/standalone -l 3000",
+        "start": "node ../scripts/run-android-env.mjs next start",
+        "build:static": "node ../scripts/run-android-env.mjs \"next build\"",
+        "build:production": "node ../scripts/run-android-env.mjs next build"
+    },
+    "engines": {
+        "node": "20.x"
+    },
+    "dependencies": {
+        "@capacitor-community/admob": "^7.0.3",
+        "@capacitor-community/text-to-speech": "^6.0.0",
+        "@capacitor/android": "^7.4.3",
+        "@capacitor/app": "^7.1.0",
+        "@capacitor/core": "^7.4.3",
+        "@capacitor/geolocation": "^7.1.5",
+        "@capacitor/ios": "^7.4.4",
+        "@capacitor/screen-orientation": "^7.0.2",
+        "@capacitor/status-bar": "^7.0.3",
+        "@mediapipe/camera_utils": "^0.3.1675466862",
+        "@mediapipe/drawing_utils": "^0.3.1620248257",
+        "@mediapipe/pose": "^0.5.1675469404",
+        "@mediapipe/tasks-vision": "^0.10.22-rc.20250304",
+        "capacitor-admob-ads": "^5.0.0",
+        "capacitor-plugin-app-tracking-transparency": "^2.0.5",
+        "framer-motion": "^10.16.4",
+        "lucide-react": "^0.294.0",
+        "next": "14.0.3",
+        "react": "^18",
+        "react-dom": "^18",
+        "web-vitals": "^3.5.0"
+    },
+    "devDependencies": {
+        "@capacitor/cli": "^7.4.3",
+        "@types/react": "19.2.2",
+        "autoprefixer": "^10.0.1",
+        "eslint": "^8",
+        "eslint-config-next": "14.0.3",
+        "postcss": "^8",
+        "serve": "^14.2.1",
+        "sharp": "^0.34.4",
+        "tailwindcss": "^3.3.0",
+        "typescript": "^5.9.3"
+    }
+}
