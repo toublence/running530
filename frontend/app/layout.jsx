@@ -10,8 +10,8 @@ import IOSBackButton from './components/IOSBackButton'
 import PortraitOrientationManager from './components/PortraitOrientationManager'
 
 export const metadata = {
-  title: 'Running 530',
-  description: 'GPS 러닝/워킹 전용 하이브리드 앱',
+  title: 'Motion Fit - Pose Analysis',
+  description: 'Modern pose analysis with MediaPipe',
   themeColor: '#0ea5e9',
   manifest: '/manifest.webmanifest',
 }

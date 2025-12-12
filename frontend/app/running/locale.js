@@ -60,6 +60,7 @@ export const SESSION_TEXT = {
       average: 'Avg Pace',
       currentSpeed: 'Current Speed',
       avgSpeed: 'Avg Speed',
+      steps: 'Steps',
     },
     controls: {
       title: 'Controls',
@@ -126,6 +127,13 @@ export const SESSION_TEXT = {
       avgPace: 'Avg Pace',
       laps: 'Laps',
       lapList: 'Lap Summary',
+      steps: 'Steps',
+      calories: 'Calories',
+      cadence: 'Cadence',
+      stride: 'Stride',
+      elevation: 'Elevation Gain',
+      intensity: 'Intensity',
+      goalProgress: 'Goal Progress',
     },
   },
   ko: {
@@ -146,6 +154,7 @@ export const SESSION_TEXT = {
       average: '평균 페이스',
       currentSpeed: '현재 속도',
       avgSpeed: '평균 속도',
+      steps: '걸음수',
     },
     controls: {
       title: '컨트롤',
@@ -212,6 +221,13 @@ export const SESSION_TEXT = {
       avgPace: '평균 페이스',
       laps: '구간 랩',
       lapList: '랩 요약',
+      steps: '걸음수',
+      calories: '칼로리',
+      cadence: '케이던스',
+      stride: '스트라이드',
+      elevation: '고도 상승',
+      intensity: '강도',
+      goalProgress: '목표 달성률',
     },
   },
 }

@@ -28,6 +28,10 @@ const normalizeLocation = (position) => {
   if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
     return null
   }
+  const stepCounterRaw = coords?.stepCounter ?? position.stepCounter ?? coords?.steps ?? position.steps
+  const accelXRaw = coords?.accelX ?? position.accelX
+  const accelYRaw = coords?.accelY ?? position.accelY
+  const accelZRaw = coords?.accelZ ?? position.accelZ
   return {
     latitude,
     longitude,
@@ -36,6 +40,11 @@ const normalizeLocation = (position) => {
     heading: Number.isFinite(coords?.heading) ? coords.heading : null,
     altitude: Number.isFinite(coords?.altitude) ? coords.altitude : null,
     timestamp: typeof position.timestamp === 'number' ? position.timestamp : Date.now(),
+    // Native geolocation is augmented on mobile with pedometer/accel values.
+    stepCounter: Number.isFinite(stepCounterRaw) ? Number(stepCounterRaw) : null,
+    accelX: Number.isFinite(accelXRaw) ? Number(accelXRaw) : null,
+    accelY: Number.isFinite(accelYRaw) ? Number(accelYRaw) : null,
+    accelZ: Number.isFinite(accelZRaw) ? Number(accelZRaw) : null,
     raw: position,
   }
 }

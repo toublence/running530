@@ -493,6 +493,9 @@ export async function stopAllTTS() {
       logTTS('stopAllTTS: web cancel error', err?.message || err);
     }
   }
+  // Reset queue/lock so future speakOnce calls are not blocked by an interrupted speech
+  speakQueue = Promise.resolve();
+  __ttsUninterruptibleUntil = 0;
 }
 
 const speakWithMode = (synth, text, rate, pitch, volume, voice, requestedLang, mode) => {

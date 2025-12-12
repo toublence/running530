@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import { formatDistanceLabel } from '../utils/distance'
 
 export default function RunningSummaryOverlay({
@@ -14,14 +15,123 @@ export default function RunningSummaryOverlay({
 }) {
   if (!isVisible || !stats) return null
 
+  const [helpKey, setHelpKey] = useState(null)
+
   const completedLabel = language === 'ko' ? '러닝 완료!' : 'Run Complete!'
   const hasRoute = Array.isArray(routePoints) && routePoints.length > 1
   const summaryStats = { ...(stats || {}) }
+  const DEFAULT_WEIGHT_KG = 65
+  const stepsLabel = language === 'ko' ? '걸음수' : 'Steps'
+  const caloriesLabel = language === 'ko' ? '칼로리' : 'Calories'
+  const cadenceLabel = language === 'ko' ? '케이던스' : 'Cadence'
+  const strideLabel = language === 'ko' ? '스트라이드' : 'Stride'
+  const elevationLabel = language === 'ko' ? '고도 상승' : 'Elevation Gain'
+  const intensityLabel = language === 'ko' ? '강도' : 'Intensity'
+  const goalProgressLabel = language === 'ko' ? '목표 달성률' : 'Goal Progress'
+  const helpTexts = {
+    ko: {
+      totalTime: '운동한 총 시간입니다.',
+      totalDistance: 'GPS로 기록된 전체 이동 거리입니다.',
+      avgPace: '전체 구간 평균 페이스입니다.',
+      current: '현재 시점 페이스입니다.',
+      steps: '세션 동안 기록된 총 걸음 수입니다.',
+      cadence: '분당 걸음 수(spm)입니다.',
+      stride: '걸음당 이동한 평균 거리입니다.',
+      calories: '속도와 시간으로 추정한 칼로리 소모량입니다.',
+      elevation: '오르막으로 얻은 고도 누적값입니다.',
+      laps: '완료한 랩(구간) 수입니다.',
+      goalProgress: '설정한 목표 대비 진행률입니다.',
+      intensity: '속도 기반의 운동 강도입니다.',
+    },
+    en: {
+      totalTime: 'Total elapsed workout time.',
+      totalDistance: 'GPS-measured total distance.',
+      avgPace: 'Average pace across the whole session.',
+      current: 'Current pace at this moment.',
+      steps: 'Total steps counted in this session.',
+      cadence: 'Steps per minute (spm).',
+      stride: 'Average distance per step.',
+      calories: 'Estimated calories burned from speed and time.',
+      elevation: 'Total elevation gain from uphill segments.',
+      laps: 'Number of completed laps/segments.',
+      goalProgress: 'Progress toward your selected goal.',
+      intensity: 'Effort level inferred from speed.',
+    },
+  }
+
+  const formatStepsValue = (steps) => {
+    if (!Number.isFinite(steps)) return '0'
+    return Math.max(0, Math.round(steps)).toLocaleString()
+  }
+
+  const estimateCalories = (distanceM, durationMs) => {
+    if (!Number.isFinite(distanceM) || !Number.isFinite(durationMs) || durationMs <= 0) return 0
+    const speedKmh = (distanceM / 1000) / (durationMs / 3600000)
+    if (!Number.isFinite(speedKmh) || speedKmh <= 0) return 0
+    let met = 2.5
+    if (speedKmh < 3) met = 2.0
+    else if (speedKmh < 4.5) met = 2.8
+    else if (speedKmh < 5.5) met = 3.5
+    else met = 4.3
+    const minutes = durationMs / 60000
+    return met * 3.5 * DEFAULT_WEIGHT_KG / 200 * minutes
+  }
 
   if (!summaryStats.totalDistance && Number.isFinite(meta?.distanceM)) {
     summaryStats.totalDistance = {
       value: formatDistanceLabel(meta.distanceM, 2),
       label: language === 'ko' ? '거리' : 'Distance',
+    }
+  }
+
+  if (!summaryStats.steps && meta?.mode === 'walk') {
+    summaryStats.steps = {
+      value: formatStepsValue(meta?.steps),
+      label: stepsLabel,
+      key: 'steps',
+    }
+  }
+
+  if (!summaryStats.calories) {
+    const kcal = Number.isFinite(meta?.calories) ? meta.calories : estimateCalories(meta?.distanceM, meta?.durationMs)
+    summaryStats.calories = {
+      value: `${Math.max(0, kcal || 0).toFixed(0)} kcal`,
+      label: caloriesLabel,
+    }
+  }
+
+  if (!summaryStats.cadence && Number.isFinite(meta?.cadenceSpm)) {
+    summaryStats.cadence = {
+      value: `${Math.max(0, Math.round(meta.cadenceSpm))}`,
+      label: `${cadenceLabel} (spm)`,
+    }
+  }
+
+  if (!summaryStats.stride && Number.isFinite(meta?.strideLengthM)) {
+    summaryStats.stride = {
+      value: `${meta.strideLengthM.toFixed(2)} m`,
+      label: strideLabel,
+    }
+  }
+
+  if (!summaryStats.elevation && Number.isFinite(meta?.elevationGainM)) {
+    summaryStats.elevation = {
+      value: `${Math.max(0, meta.elevationGainM).toFixed(0)} m`,
+      label: elevationLabel,
+    }
+  }
+
+  if (!summaryStats.intensity && meta?.intensityLevel) {
+    summaryStats.intensity = {
+      value: meta.intensityLevel,
+      label: intensityLabel,
+    }
+  }
+
+  if (!summaryStats.goalProgress && Number.isFinite(meta?.goalProgress)) {
+    summaryStats.goalProgress = {
+      value: `${Math.max(0, meta.goalProgress).toFixed(0)}%`,
+      label: goalProgressLabel,
     }
   }
 
@@ -51,7 +161,7 @@ export default function RunningSummaryOverlay({
             </div>
 
             {/* Stats Grid with enhanced design */}
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2">
               {summaryStats && Object.entries(summaryStats).map(([key, value]) => {
                 // Determine gradient based on stat type
                 const isDistance = key.toLowerCase().includes('distance')
@@ -72,16 +182,73 @@ export default function RunningSummaryOverlay({
                 return (
                   <div
                     key={key}
-                    className={`group rounded-2xl border-2 bg-gradient-to-br ${gradientClass} p-4 text-center shadow-lg backdrop-blur-sm transition-all duration-200 hover:scale-105 ${glowClass}`}
+                    className={`group relative rounded-2xl border bg-gradient-to-br ${gradientClass} p-3 text-center shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] ${glowClass}`}
                   >
-                    <p className="text-[0.65rem] uppercase tracking-[0.25em] text-white/70 font-bold mb-2">
-                      {value.label}
-                    </p>
-                    <p className="text-2xl font-black text-white">{value.value}</p>
+                    <div className="flex items-center justify-center gap-2 mb-1">
+                      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/70 font-bold">
+                        {value.label}
+                      </p>
+                      {helpTexts[language]?.[key] && (
+                        <button
+                          type="button"
+                          onClick={() => setHelpKey((prev) => (prev === key ? null : key))}
+                          className="h-5 w-5 rounded-full border border-white/30 text-[0.65rem] font-black text-white/80 leading-none flex items-center justify-center bg-white/10"
+                        >
+                          ?
+                        </button>
+                      )}
+                    </div>
+                    <p className="text-xl font-black text-white">{value.value}</p>
+                    {helpKey === key && helpTexts[language]?.[key] && (
+                      <div className="mt-2 rounded-md bg-black/70 px-2 py-1 text-[0.65rem] text-white/80">
+                        {helpTexts[language][key]}
+                      </div>
+                    )}
                   </div>
                 )
               })}
             </div>
+
+	            {/* Weekly / Monthly running distance goals context (run mode only) */}
+	            {meta?.mode === 'run' && (Number.isFinite(meta.runWeeklyTotalDistanceM) || Number.isFinite(meta.runMonthlyTotalDistanceM)) && (
+	              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-white/90 flex flex-col gap-2">
+	                <p className="text-[0.65rem] uppercase tracking-[0.25em] text-emerald-200 font-bold">
+	                  {language === 'ko' ? '주간/월간 런닝 목표' : 'Weekly / Monthly running goals'}
+	                </p>
+	                <div className="grid grid-cols-2 gap-3">
+	                  {Number.isFinite(meta.runWeeklyTotalDistanceM) && Number.isFinite(meta.runWeeklyTargetKm) && (
+	                    <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-emerald-100 font-semibold">
+	                        {language === 'ko' ? '이번 주' : 'This week'}
+	                      </p>
+	                      <p className="mt-1 text-sm font-bold">
+	                        {`${(meta.runWeeklyTotalDistanceM / 1000).toFixed(1)} / ${meta.runWeeklyTargetKm.toFixed(0)} km`}
+	                      </p>
+	                      {Number.isFinite(meta.runWeeklyGoalProgress) && (
+	                        <p className="text-[0.7rem] text-emerald-100/80">
+	                          {`${Math.max(0, Math.round(meta.runWeeklyGoalProgress))}%`}
+	                        </p>
+	                      )}
+	                    </div>
+	                  )}
+	                  {Number.isFinite(meta.runMonthlyTotalDistanceM) && Number.isFinite(meta.runMonthlyTargetKm) && (
+	                    <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2">
+	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-sky-100 font-semibold">
+	                        {language === 'ko' ? '이번 달' : 'This month'}
+	                      </p>
+	                      <p className="mt-1 text-sm font-bold">
+	                        {`${(meta.runMonthlyTotalDistanceM / 1000).toFixed(1)} / ${meta.runMonthlyTargetKm.toFixed(0)} km`}
+	                      </p>
+	                      {Number.isFinite(meta.runMonthlyGoalProgress) && (
+	                        <p className="text-[0.7rem] text-sky-100/80">
+	                          {`${Math.max(0, Math.round(meta.runMonthlyGoalProgress))}%`}
+	                        </p>
+	                      )}
+	                    </div>
+	                  )}
+	                </div>
+	              </div>
+	            )}
 
             {/* Meta details */}
             {meta && (
