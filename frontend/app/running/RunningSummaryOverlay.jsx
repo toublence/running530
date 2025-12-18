@@ -21,10 +21,7 @@ export default function RunningSummaryOverlay({
   const hasRoute = Array.isArray(routePoints) && routePoints.length > 1
   const summaryStats = { ...(stats || {}) }
   const DEFAULT_WEIGHT_KG = 65
-  const stepsLabel = language === 'ko' ? '걸음수' : 'Steps'
   const caloriesLabel = language === 'ko' ? '칼로리' : 'Calories'
-  const cadenceLabel = language === 'ko' ? '케이던스' : 'Cadence'
-  const strideLabel = language === 'ko' ? '스트라이드' : 'Stride'
   const elevationLabel = language === 'ko' ? '고도 상승' : 'Elevation Gain'
   const intensityLabel = language === 'ko' ? '강도' : 'Intensity'
   const goalProgressLabel = language === 'ko' ? '목표 달성률' : 'Goal Progress'
@@ -34,9 +31,6 @@ export default function RunningSummaryOverlay({
       totalDistance: 'GPS로 기록된 전체 이동 거리입니다.',
       avgPace: '전체 구간 평균 페이스입니다.',
       current: '현재 시점 페이스입니다.',
-      steps: '세션 동안 기록된 총 걸음 수입니다.',
-      cadence: '분당 걸음 수(spm)입니다.',
-      stride: '걸음당 이동한 평균 거리입니다.',
       calories: '속도와 시간으로 추정한 칼로리 소모량입니다.',
       elevation: '오르막으로 얻은 고도 누적값입니다.',
       laps: '완료한 랩(구간) 수입니다.',
@@ -48,20 +42,12 @@ export default function RunningSummaryOverlay({
       totalDistance: 'GPS-measured total distance.',
       avgPace: 'Average pace across the whole session.',
       current: 'Current pace at this moment.',
-      steps: 'Total steps counted in this session.',
-      cadence: 'Steps per minute (spm).',
-      stride: 'Average distance per step.',
       calories: 'Estimated calories burned from speed and time.',
       elevation: 'Total elevation gain from uphill segments.',
       laps: 'Number of completed laps/segments.',
       goalProgress: 'Progress toward your selected goal.',
       intensity: 'Effort level inferred from speed.',
     },
-  }
-
-  const formatStepsValue = (steps) => {
-    if (!Number.isFinite(steps)) return '0'
-    return Math.max(0, Math.round(steps)).toLocaleString()
   }
 
   const estimateCalories = (distanceM, durationMs) => {
@@ -84,33 +70,11 @@ export default function RunningSummaryOverlay({
     }
   }
 
-  if (!summaryStats.steps && meta?.mode === 'walk') {
-    summaryStats.steps = {
-      value: formatStepsValue(meta?.steps),
-      label: stepsLabel,
-      key: 'steps',
-    }
-  }
-
   if (!summaryStats.calories) {
     const kcal = Number.isFinite(meta?.calories) ? meta.calories : estimateCalories(meta?.distanceM, meta?.durationMs)
     summaryStats.calories = {
       value: `${Math.max(0, kcal || 0).toFixed(0)} kcal`,
       label: caloriesLabel,
-    }
-  }
-
-  if (!summaryStats.cadence && Number.isFinite(meta?.cadenceSpm)) {
-    summaryStats.cadence = {
-      value: `${Math.max(0, Math.round(meta.cadenceSpm))}`,
-      label: `${cadenceLabel} (spm)`,
-    }
-  }
-
-  if (!summaryStats.stride && Number.isFinite(meta?.strideLengthM)) {
-    summaryStats.stride = {
-      value: `${meta.strideLengthM.toFixed(2)} m`,
-      label: strideLabel,
     }
   }
 

@@ -27,9 +27,7 @@ import {
   SESSION_TEXT,
 } from './locale'
 import { createMetricsAccumulator } from './metrics'
-import { ensureActivityRecognitionPermission, ensurePedometerPermission, maybeRequestIgnoreBatteryOptimizations } from '../utils/activity-permissions'
-import { backgroundPedometer } from '../utils/background-pedometer'
-import { pedometer } from '../utils/pedometer'
+import { maybeRequestIgnoreBatteryOptimizations } from '../utils/activity-permissions'
 
 const MODE_META = {
   run: {
@@ -39,14 +37,6 @@ const MODE_META = {
     accentColor: 'emerald',
     defaultTimeCueMs: 5 * 60 * 1000,
     defaultTargetPaceMs: 6.5 * 60 * 1000, // 6'30"
-  },
-  walk: {
-    title: 'Walking',
-    titleKo: '도보',
-    gradient: 'from-amber-400/30 via-orange-500/20 to-rose-500/30',
-    accentColor: 'amber',
-    defaultTimeCueMs: 10 * 60 * 1000,
-    defaultTargetPaceMs: 5 * 60 * 1000, // 기본값 5'00"
   },
 }
 
@@ -65,10 +55,6 @@ const ACCURACY_STRICT_REJECT_M = 50
 const UNKNOWN_ACCURACY_DELTA_CAP_M = 6
 const LOCATION_STALE_THRESHOLD_MS = 2 * 60 * 1000
 const RUN_MAX_SPEED_MPS = 11.1 // 런닝 최대 속도 현실화 (40km/h, 이전: 7.5m/s = 27km/h)
-const WALK_MAX_SPEED_MPS = 4.17 // 워킹 최대 속도 현실화 (15km/h, 이전: 3.0m/s = 10.8km/h)
-const MAX_STEPS_PER_SEC_WALK = 4.2
-const MIN_MOVING_SPEED_FOR_STEPS_MPS = 0.3
-const STEP_SENSOR_STALE_MS = 5000
 const MAX_HISTORY_ITEMS = 20
 const MIN_AVG_PACE_DISTANCE_M = 100
 const IDLE_THRESHOLD_MS = 30000 // 30s of no movement -> pause high-accuracy watch
@@ -79,33 +65,8 @@ const MIN_PACE_COACH_DELTA_MS = 15000 // 15s difference before coaching nags
 const PACE_COACH_COOLDOWN_MS = 90000
 const GHOST_DISTANCE_TOLERANCE_M = 500 // ±0.5km tolerance when finding a target run
 const MIN_GHOST_SPLITS = 1
-const WALK_STRIDE_M = 0.75 // Default walking stride length in meters
-const STRIDE_FROM_HEIGHT_FACTOR = 0.415 // stride ≈ height * factor
-// GPS fallback thresholds (walking only)
-// - MIN_SEGMENT: 최소 이동 거리. 너무 작으면 GPS 드리프트(제자리에서 1~2m 흔들림)를 걸음으로 잘못 세게 됨.
-// - MIN_SPEED: 최소 속도. 거의 멈춰 있거나 아주 느리게 움직이는 상황(예: 책상 위 폰 위치 튀는 현상)은 무시.
-//   5m 이상 + 2km/h 이상일 때만 "실제 걸음"으로 인정하도록 기준을 올린다.
-const WALK_GPS_FALLBACK_MIN_SEGMENT_M = 5
-const WALK_GPS_FALLBACK_MIN_SPEED_MS = 2 / 3.6
 const DEFAULT_WEIGHT_KG = 65 // Fallback weight for calorie estimation
-const STEP_GOAL_DEFAULT = 10000 // Daily step goal for progress %
 const ELEVATION_NOISE_M = 1 // Ignore tiny altitude fluctuations
-const DEBUG_STEPS = false // 디버그 HUD 토글. false이면 HUD/로그 비활성화.
-const LEGACY_WALK_PACE_DEFAULT_MS = 10 * 60 * 1000 // 기존 기본값 (마이그레이션 용)
-const CARRYOVER_STORAGE_KEY = 'running_carryover_state_v1'
-const STEP_TIMELINE_STORAGE_KEY = 'running_step_timeline_v1'
-
-// Walking mode weekly/monthly step goals (gamification)
-const WALK_WEEKLY_STEPS_GOAL_DEFAULT = 70000 // 기본 주간 걸음수 목표 (약 1만 보 * 7일)
-const WALK_MONTHLY_STEPS_GOAL_DEFAULT = 300000 // 기본 월간 걸음수 목표 (약 1만 보 * 30일)
-const WALK_GOALS_STORAGE_KEY = 'running_walk_goals_v1'
-const WALK_BADGES_STORAGE_KEY = 'running_walk_badges_v1'
-const WALK_BADGE_WEEK_GOAL_FIRST = 'walk_week_goal_1'
-
-const makeDefaultWalkGoals = () => ({
-  weeklySteps: { target: WALK_WEEKLY_STEPS_GOAL_DEFAULT, active: true },
-  monthlySteps: { target: WALK_MONTHLY_STEPS_GOAL_DEFAULT, active: true },
-})
 
 // Running mode weekly/monthly distance goals (km 단위 기본값)
 const RUN_WEEKLY_DISTANCE_GOAL_KM_DEFAULT = 20 // 기본 주간 러닝 목표 거리 (20km)
@@ -167,40 +128,6 @@ const resolveCapacitorPlatform = () => {
   return 'web'
 }
 
-const estimateStepCount = (distanceM, mode) => {
-  if (mode !== 'walk') return null
-  const distance = Number(distanceM)
-  if (!Number.isFinite(distance) || distance <= 0) return 0
-  return Math.max(0, Math.round(distance / WALK_STRIDE_M))
-}
-
-// WALKING MODE stride helper
-const resolveUserHeightMeters = () => {
-  if (typeof window === 'undefined') return null
-  const keys = ['user_height_cm', 'userHeightCm', 'user_height_m']
-  for (let i = 0; i < keys.length; i += 1) {
-    try {
-      const raw = localStorage.getItem(keys[i])
-      if (raw == null) continue
-      const num = Number(raw)
-      if (!Number.isFinite(num) || num <= 0) continue
-      if (raw.includes('cm') || num > 3) {
-        return num / 100
-      }
-      return num
-    } catch {}
-  }
-  return null
-}
-
-const resolveStrideLengthMeters = () => {
-  const heightM = resolveUserHeightMeters()
-  if (Number.isFinite(heightM) && heightM > 0) {
-    return heightM * STRIDE_FROM_HEIGHT_FACTOR
-  }
-  return WALK_STRIDE_M
-}
-
 const formatDateKey = (date) => {
   const yyyy = date.getFullYear()
   const mm = String(date.getMonth() + 1).padStart(2, '0')
@@ -237,27 +164,6 @@ const formatSpeedLabel = (paceMs) => {
   if (!Number.isFinite(kmh)) return '--.- km/h'
   return `${kmh.toFixed(1)} km/h`
 }
-
-	// Compact formatter for large step counts so goal cards don't overflow
-	// e.g. 70000 -> '7만' (ko) or '70k' (en), 300000 -> '30만' / '300k'
-	const formatStepsCompact = (steps, language) => {
-	  if (!Number.isFinite(steps)) return '0'
-	  const n = Math.max(0, Math.floor(steps))
-	  if (language === 'ko') {
-	    if (n >= 10000) {
-	      const man = Math.round(n / 10000) // 70000 -> 7
-	      return `${man}만`
-	    }
-	    return n.toLocaleString()
-	  }
-	  // non-ko: use k-notation for 4+ digits
-	  if (n >= 1000) {
-	    const k = Math.round(n / 100) / 10 // 70000 -> 700.0 -> 700k
-	    const label = k % 1 === 0 ? k.toFixed(0) : k.toFixed(1)
-	    return `${label}k`
-	  }
-	  return n.toLocaleString()
-	}
 
 	// Compact km label for running distance goals (e.g. 12.3km / 20km)
 	const formatKmLabel = (kmValue, language) => {
@@ -396,15 +302,6 @@ export default function RunningSession({ mode }) {
   const [isPaused, setIsPaused] = useState(false)
   const [elapsedMs, setElapsedMs] = useState(0)
   const [distanceM, setDistanceM] = useState(0)
-  const [stepCount, setStepCount] = useState(null)
-  const [baseSteps, setBaseSteps] = useState(null)
-  const [sessionSteps, setSessionSteps] = useState(0)
-  const [pedometerReady, setPedometerReady] = useState(false)
-  const [pedometerError, setPedometerError] = useState(null)
-  const [strideLengthM, setStrideLengthM] = useState(() => resolveStrideLengthMeters())
-  const [displayStepCount, setDisplayStepCount] = useState(null)
-  const [stepDebugInfo, setStepDebugInfo] = useState(null)
-  const [stepDebugCollapsed, setStepDebugCollapsed] = useState(false)
   const [currentPaceMs, setCurrentPaceMs] = useState(null)
   const [avgPaceMs, setAvgPaceMs] = useState(null)
   const [laps, setLaps] = useState([])
@@ -423,8 +320,6 @@ export default function RunningSession({ mode }) {
   const [starting, setStarting] = useState(false)
   const [lapAlert, setLapAlert] = useState(null)
   const [capPlatform, setCapPlatform] = useState(() => resolveCapacitorPlatform())
-  const [chartTab, setChartTab] = useState('day') // 'day' | 'week' | 'month'
-  const [stepTimeline, setStepTimeline] = useState([])
   const safeAreaTop = useSafeAreaTop()
   const [bannerStatus, setBannerStatus] = useState('hidden') // 'hidden' | 'loading' | 'visible' | 'error' | 'unavailable'
   const [language, setLanguage] = useState(() => {
@@ -480,39 +375,6 @@ export default function RunningSession({ mode }) {
     return saved === 'true'
   })
 	  const [sessionKeepAwake, setSessionKeepAwake] = useState(false)
-	  const [walkGoalConfig, setWalkGoalConfig] = useState(() => {
-	    if (typeof window === 'undefined') return makeDefaultWalkGoals()
-	    try {
-	      const raw = localStorage.getItem(WALK_GOALS_STORAGE_KEY)
-	      if (!raw) return makeDefaultWalkGoals()
-	      const parsed = JSON.parse(raw)
-	      const base = makeDefaultWalkGoals()
-	      if (parsed && typeof parsed === 'object') {
-	        if (parsed.weeklySteps && Number.isFinite(parsed.weeklySteps.target)) {
-	          base.weeklySteps.target = Math.max(0, Number(parsed.weeklySteps.target))
-	          base.weeklySteps.active = parsed.weeklySteps.active !== false
-	        }
-	        if (parsed.monthlySteps && Number.isFinite(parsed.monthlySteps.target)) {
-	          base.monthlySteps.target = Math.max(0, Number(parsed.monthlySteps.target))
-	          base.monthlySteps.active = parsed.monthlySteps.active !== false
-	        }
-	      }
-	      return base
-	    } catch {
-	      return makeDefaultWalkGoals()
-	    }
-	  })
-	  const [walkBadges, setWalkBadges] = useState(() => {
-	    if (typeof window === 'undefined') return {}
-	    try {
-	      const raw = localStorage.getItem(WALK_BADGES_STORAGE_KEY)
-	      if (!raw) return {}
-	      const parsed = JSON.parse(raw)
-	      return parsed && typeof parsed === 'object' ? parsed : {}
-	    } catch {
-	      return {}
-	    }
-	  })
 	  const [runGoalConfig, setRunGoalConfig] = useState(() => {
 	    if (typeof window === 'undefined') return makeDefaultRunGoals()
 	    try {
@@ -566,39 +428,7 @@ export default function RunningSession({ mode }) {
 
   const text = SESSION_TEXT[language] || SESSION_TEXT.en
   const modeTitle = language === 'ko' ? meta.titleKo : meta.title
-  const isWalkMode = resolvedMode === 'walk'
 	  const anyDropdownOpen = lapDistanceDropdownOpen || timeCueDropdownOpen || paceTargetDropdownOpen || goalDistanceDropdownOpen || goalTimeDropdownOpen
-	
-	  const unlockWalkBadge = useCallback((badgeId) => {
-	    if (!badgeId) return
-	    setWalkBadges((prev) => {
-	      const prevSafe = prev && typeof prev === 'object' ? prev : {}
-	      if (prevSafe[badgeId]) return prevSafe
-	      return {
-	        ...prevSafe,
-	        [badgeId]: {
-	          unlockedAt: Date.now(),
-	        },
-	      }
-	    })
-
-	    let detail
-	    if (badgeId === WALK_BADGE_WEEK_GOAL_FIRST) {
-	      detail = language === 'ko'
-	        ? '\uccab \uc8fc\uac04 \uac78\uc74c\uc218 \ubaa9\ud45c\ub97c \ub2ec\uc131\ud588\uc5b4\uc694!'
-	        : 'You achieved your first weekly step goal!'
-	    } else {
-	      detail = language === 'ko'
-	        ? '\uc6cc\ud0b9 \ubaa9\ud45c\ub97c \ub2ec\uc131\ud588\uc5b4\uc694.'
-	        : 'You reached your walking goal.'
-	    }
-
-	    const title = language === 'ko' ? '\ubc30\uc9c0 \ud68d\ub4dd' : 'Badge unlocked'
-	    setBadgeBanner({
-	      title,
-	      detail,
-	    })
-	  }, [language])
 
 	  const unlockRunBadge = useCallback((badgeId) => {
 	    if (!badgeId) return
@@ -664,93 +494,18 @@ export default function RunningSession({ mode }) {
   const lockHistoryPushedRef = useRef(false)
   const suppressPopstateRef = useRef(false)
   const ghostSessionRef = useRef({ enabled: false, targetRun: null, lapsTimeline: [], nextKmIndex: 1 })
-  const stepCountRef = useRef(null)
   const metricsRef = useRef(null)
-  const pedometerStopRef = useRef(null)
-  const pedometerPausedBaseRef = useRef(null)
-  const pedometerActiveRef = useRef(false)
-  const baseStepsRef = useRef(null)
-  const distanceOffsetRef = useRef(0)
-  const elapsedOffsetRef = useRef(0)
-  const stepOffsetRef = useRef(0)
-  const stepSensorSeenRef = useRef(false)
-  const stepSessionTokenRef = useRef(null)
-  const stepSensorBaseRef = useRef(null)
-  const lastSensorStepValueRef = useRef(null)
-  const lastStepUpdateTsRef = useRef(null)
-  const lastSensorStepTsRef = useRef(null)
   const pausedIntervalsRef = useRef([])
   const lastActiveTsRef = useRef(0)
   const idleModeRef = useRef(false)
   const idlePollTimerRef = useRef(null)
   const lastActivityDistanceRef = useRef(0)
-  const lastActivityStepsRef = useRef(0)
   const lastIdleProbeRef = useRef(null)
-  const sessionRestoredRef = useRef(false) // 세션 복원 플래그
   const handleLocationRef = useRef(null)
   const enterIdleModeRef = useRef(null)
-  const stepAnimTimerRef = useRef(null)
-  const stepDisplayRef = useRef(null)
-  const stepDebugLogTsRef = useRef(0)
   const prevDistanceRef = useRef(0)
   const motionStopRef = useRef(null)
-  const stepTimelineRef = useRef([])
-  const walkActiveElapsedRef = useRef(0)
-  const walkLastTickRef = useRef(null)
-  const walkLapStartElapsedRef = useRef(0)
-  const sessionStartDateRef = useRef(null) // 세션 시작 날짜 추적용
   const distanceCalculatorRef = useRef(null) // DistanceCalculator 인스턴스
-  const lastGpsStepCountRef = useRef(null) // GPS 기반 보폭 보정용 마지막 걸음수
-  const pedometerReadingHandlerRef = useRef(null) // 페도미터 핸들러 ref (stale closure 방지)
-
-  const stopStepAnim = useCallback(() => {
-    if (stepAnimTimerRef.current) {
-      clearInterval(stepAnimTimerRef.current)
-      stepAnimTimerRef.current = null
-    }
-  }, [])
-
-  const updateStepDebug = useCallback((partial) => {
-    if (!DEBUG_STEPS) return
-    setStepDebugInfo((prev) => ({
-      ...(prev || {}),
-      ...partial,
-      updatedAt: Date.now(),
-    }))
-  }, [])
-
-  const updateWalkingElapsed = useCallback((timestamp, moving, { force } = {}) => {
-    if (!isWalkMode) return null
-    const now = Number.isFinite(timestamp) ? timestamp : Date.now()
-    const lastTick = walkLastTickRef.current
-    const delta = lastTick ? Math.max(0, now - lastTick) : 0
-    const clampedDelta = delta > 0 ? Math.min(delta, STEP_SENSOR_STALE_MS) : 0
-
-    if (clampedDelta > 0 && (moving || force)) {
-      walkActiveElapsedRef.current += clampedDelta
-    }
-
-    if (moving) {
-      walkLastTickRef.current = now
-    } else {
-      walkLastTickRef.current = null
-    }
-
-    const elapsed = (elapsedOffsetRef.current || 0) + walkActiveElapsedRef.current
-    setElapsedMs(elapsed)
-    return elapsed
-  }, [isWalkMode])
-
-  const flushWalkingElapsed = useCallback((timestamp) => {
-    if (!isWalkMode) return null
-    const now = Number.isFinite(timestamp) ? timestamp : Date.now()
-    const lastTick = walkLastTickRef.current
-    updateWalkingElapsed(now, Boolean(lastTick), { force: true })
-    walkLastTickRef.current = null
-    const elapsed = (elapsedOffsetRef.current || 0) + walkActiveElapsedRef.current
-    setElapsedMs(elapsed)
-    return elapsed
-  }, [isWalkMode, updateWalkingElapsed])
 
   const upsertCarryoverHistory = useCallback((entry, reason = 'carryover') => {
     if (!entry) return
@@ -866,288 +621,6 @@ export default function RunningSession({ mode }) {
     try { localStorage.removeItem(CARRYOVER_STORAGE_KEY) } catch {}
   }, [])
 
-  const checkAndResetForNewDay = useCallback((currentRawSteps = null, forceReset = false) => {
-    if (!isWalkMode || !sessionActive) return { didReset: false, previousBaseSteps: null }
-
-    const currentDateKey = getTodayKey()
-    const sessionDateKey = sessionStartDateRef.current
-
-    // 날짜가 변경되었는지 확인
-    if (sessionDateKey && sessionDateKey !== currentDateKey) {
-      // currentRawSteps가 없으면 (GPS 경로) 리셋하지 않고 날짜만 체크
-      // pedometer 이벤트에서만 실제 리셋 수행
-      if (!Number.isFinite(currentRawSteps) && !forceReset) {
-        console.log('[walking] Date changed detected (GPS path). Waiting for pedometer event to reset.', {
-          sessionDate: sessionDateKey,
-          currentDate: currentDateKey
-        })
-        return { didReset: false, previousBaseSteps: null }
-      }
-
-      // 리셋 전에 이전 baseSteps 저장 (자정 이후 증분 계산용)
-      const previousBaseSteps = baseStepsRef.current
-
-      console.log('[walking] Date changed detected. Resetting all data.', {
-        sessionDate: sessionDateKey,
-        currentDate: currentDateKey,
-        currentRawSteps,
-        previousBaseSteps
-      })
-
-      // 모든 워킹 데이터 초기화
-      // 걸음수 - baseSteps를 현재 raw 값으로 설정하여 자정 이후 걸음 누락 방지
-      stepCountRef.current = 0
-      stepDisplayRef.current = 0
-      setStepCount(0)
-      setDisplayStepCount(0)
-      setSessionSteps(0)
-      stepOffsetRef.current = 0
-
-      // currentRawSteps가 제공되면 새로운 base로 설정
-      if (Number.isFinite(currentRawSteps)) {
-        baseStepsRef.current = currentRawSteps
-        setBaseSteps(currentRawSteps)
-        pedometerPausedBaseRef.current = null
-      } else if (forceReset) {
-        // forceReset (visibility change)인 경우 baseSteps를 null로 초기화
-        // 다음 pedometer 이벤트에서 새로운 base로 설정됨
-        baseStepsRef.current = null
-        setBaseSteps(null)
-        pedometerPausedBaseRef.current = null
-      }
-      // else: GPS 경로에서 호출 - baseSteps 유지 (다음 pedometer 이벤트에서 설정)
-
-      // 거리
-      totalDistanceRef.current = 0
-      distanceOffsetRef.current = 0
-      setDistanceM(0)
-      lastActivityDistanceRef.current = 0
-
-      // GPS 앵커 초기화 (중요: 전날 위치 기준 거리 계산 방지)
-      lastPointRef.current = null
-      routePointsRef.current = []
-      samplesRef.current = [] // 페이스 계산용 샘플 초기화
-
-      // 시간
-      walkActiveElapsedRef.current = 0
-      elapsedOffsetRef.current = 0
-      setElapsedMs(0)
-      walkLastTickRef.current = null
-      sessionStartRef.current = Date.now()
-
-      // Pause 관련 누적치 초기화
-      pausedAccumulatedRef.current = 0
-      pauseStartRef.current = 0
-      pausedIntervalsRef.current.length = 0
-      lapPausedAccumulatedRef.current = 0
-      lapPauseStartRef.current = 0
-
-      // 랩 데이터
-      lapsRef.current = []
-      setLaps([])
-      walkLapStartElapsedRef.current = 0
-      lapStartDistanceRef.current = 0
-      lapStartTimeRef.current = Date.now()
-      lapTargetRef.current = lapDistanceM
-
-      // 페이스
-      setAvgPaceMs(null)
-      setCurrentPaceMs(null)
-
-      // carryover 및 타임라인 초기화 전에 히스토리로 마이그레이션
-      try {
-        const carryoverRaw = localStorage.getItem(CARRYOVER_STORAGE_KEY)
-        if (carryoverRaw) {
-          const carryover = JSON.parse(carryoverRaw)
-
-          // 전날 데이터가 있으면 히스토리로 저장 (데이터 손실 방지)
-          if (carryover?.steps > 0 || carryover?.distanceM > 0 || carryover?.elapsedMs > 0) {
-            console.log('[walking] Migrating carryover to history before reset:', carryover)
-
-            upsertCarryoverHistory({
-              id: `${carryover.dateKey}_reset_${Date.now()}`,
-              mode: carryover.mode || 'walk',
-              dateKey: carryover.dateKey,
-              startedAt: new Date(carryover.dateKey).getTime(),
-              durationMs: carryover.elapsedMs || 0,
-              distanceM: carryover.distanceM || 0,
-              avgPaceMs: carryover.distanceM > 0 ? (carryover.elapsedMs / (carryover.distanceM / 1000)) : 0,
-              laps: carryover.laps || [],
-              route: [],
-              steps: carryover.steps || 0,
-              autoSaved: true,
-              migratedFromReset: true,
-            }, 'reset')
-          }
-        }
-      } catch (err) {
-        console.error('[walking] Failed to migrate carryover before reset:', err)
-      }
-
-      clearCarryoverState()
-      stepTimelineRef.current = []
-      setStepTimeline([])
-      try {
-        localStorage.removeItem(STEP_TIMELINE_STORAGE_KEY)
-      } catch {}
-
-      // 메트릭 누산기 초기화 (칼로리, 강도 등)
-      metricsRef.current = createMetricsAccumulator({
-        mode: 'walking',
-        userWeightKg: DEFAULT_WEIGHT_KG,
-        userStepGoal: STEP_GOAL_DEFAULT,
-        sessionStartTime: sessionStartRef.current,
-        pausedIntervals: pausedIntervalsRef.current,
-        stepCounterAtStart: null,
-        enableAccelFallback: true,
-        onDebug: DEBUG_STEPS ? (payload) => updateStepDebug(payload) : null,
-      })
-
-      // 새로운 날짜로 세션 시작 날짜 업데이트
-      sessionStartDateRef.current = currentDateKey
-
-      if (DEBUG_STEPS) {
-        updateStepDebug({
-          source: 'date-reset',
-          sessionSteps: 0,
-          displayStepCount: 0,
-          distanceM: 0,
-          message: `All data reset due to date change: ${sessionDateKey} -> ${currentDateKey}`,
-        })
-      }
-
-      return { didReset: true, previousBaseSteps }
-    }
-
-    return { didReset: false, previousBaseSteps: null }
-  }, [isWalkMode, sessionActive, clearCarryoverState, updateStepDebug, lapDistanceM, upsertCarryoverHistory])
-
-  const saveCarryoverState = useCallback((payload) => {
-    if (typeof window === 'undefined') return
-    try {
-      const data = { ...payload, dateKey: getTodayKey() }
-      localStorage.setItem(CARRYOVER_STORAGE_KEY, JSON.stringify(data))
-    } catch {}
-  }, [])
-
-  const persistCarryover = useCallback((snapshot) => {
-    if (resolvedMode === 'run') return
-    const distance = Math.max(0, Number(snapshot?.distanceM) || 0)
-    const elapsed = Math.max(0, Number(snapshot?.elapsedMs) || 0)
-    const stepsVal = Number.isFinite(snapshot?.steps) ? Math.max(0, snapshot.steps) : null
-    const lapsData = Array.isArray(snapshot?.laps) ? snapshot.laps : []
-    saveCarryoverState({
-      mode: resolvedMode,
-      distanceM: distance,
-      elapsedMs: elapsed,
-      steps: stepsVal,
-      lapDistanceM,
-      laps: lapsData,
-    })
-  }, [lapDistanceM, resolvedMode, saveCarryoverState])
-
-  // 시간/주/월 그래프를 위해 스텝 타임라인 누적 (워킹 전용)
-  const appendStepTimeline = useCallback((sample) => {
-    if (!sample || !Number.isFinite(sample.steps) || !Number.isFinite(sample.ts)) return
-    const tsNorm = sample.ts < 1e12 ? sample.ts * 1000 : sample.ts // 일부 센서가 sec 단위로 전달하는 경우 보정
-
-    // 분 단위로 그룹화하여 샘플 압축 (같은 분에는 마지막 샘플만 유지)
-    const current = [...stepTimelineRef.current]
-    const d = new Date(tsNorm)
-    const newKey = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}-${d.getHours()}-${d.getMinutes()}`
-
-    // 같은 분의 기존 샘플 찾기
-    const existingIdx = current.findIndex(s => {
-      const sd = new Date(s.ts)
-      const sKey = `${sd.getFullYear()}-${sd.getMonth()}-${sd.getDate()}-${sd.getHours()}-${sd.getMinutes()}`
-      return sKey === newKey
-    })
-
-    if (existingIdx >= 0) {
-      // 같은 분의 샘플이 있으면 업데이트 (더 큰 걸음수로)
-      if (sample.steps > current[existingIdx].steps) {
-        current[existingIdx] = { ...sample, ts: tsNorm }
-      }
-    } else {
-      // 새로운 분의 샘플 추가
-      current.push({ ...sample, ts: tsNorm })
-    }
-
-    // 최대 1440개 (24시간 * 60분) 유지
-    const next = current.slice(-1440)
-
-    stepTimelineRef.current = next
-    setStepTimeline(next)
-    try {
-      const payload = { dateKey: getTodayKey(), samples: next }
-      localStorage.setItem(STEP_TIMELINE_STORAGE_KEY, JSON.stringify(payload))
-    } catch {}
-  }, [getTodayKey])
-
-  const loadStepTimeline = useCallback(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const raw = localStorage.getItem(STEP_TIMELINE_STORAGE_KEY)
-      if (!raw) return []
-      const parsed = JSON.parse(raw)
-      if (!parsed || parsed.dateKey !== getTodayKey() || !Array.isArray(parsed.samples)) return []
-      return parsed.samples
-        .map((s) => {
-          const tsRaw = Number(s?.ts)
-          const ts = Number.isFinite(tsRaw) ? (tsRaw < 1e12 ? tsRaw * 1000 : tsRaw) : null
-          return Number.isFinite(s?.steps) && Number.isFinite(ts) ? { steps: s.steps, ts } : null
-        })
-        .filter(Boolean)
-    } catch {
-      return []
-    }
-  }, [getTodayKey])
-
-  // 그래프에 실시간 스텝 반영
-  useEffect(() => {
-    if (!isWalkMode) return
-    if (!Number.isFinite(stepCount)) return
-    const last = stepTimelineRef.current[stepTimelineRef.current.length - 1]
-    if (last && last.steps === stepCount) return
-    appendStepTimeline({ ts: Date.now(), steps: stepCount })
-  }, [appendStepTimeline, isWalkMode, stepCount])
-
-  // 세션 시작 전에도 당일 캐리오버 데이터를 미리 표시
-  useEffect(() => {
-    if (sessionActive || resolvedMode === 'run') return
-    if (resolvedMode === 'run') {
-      clearCarryoverState()
-      return
-    }
-    const carry = loadCarryoverState()
-    if (!carry || carry.mode !== resolvedMode) return
-    const distance = Math.max(0, Number(carry.distanceM) || 0)
-    const elapsed = Math.max(0, Number(carry.elapsedMs) || 0)
-    const stepsVal = Number.isFinite(carry.steps) ? Math.max(0, carry.steps) : null
-    setDistanceM(distance)
-    setElapsedMs(elapsed)
-    if (resolvedMode === 'walk') {
-      setStepCount(stepsVal)
-      setDisplayStepCount(stepsVal)
-      setSessionSteps(stepsVal || 0)
-    }
-    if (Array.isArray(carry.laps)) {
-      lapsRef.current = carry.laps
-      setLaps(carry.laps)
-    }
-    if (Number.isFinite(carry.lapDistanceM)) {
-      const parsed = carry.lapDistanceM === 500 ? 500 : 1000
-      setLapDistanceM(parsed)
-    }
-  }, [loadCarryoverState, resolvedMode, sessionActive])
-
-  // 스텝 타임라인 로드 (당일 유지)
-  useEffect(() => {
-    if (sessionActive) return
-    const stored = loadStepTimeline()
-    stepTimelineRef.current = stored
-    setStepTimeline(stored)
-  }, [loadStepTimeline, sessionActive])
 
   const blockLockedInteraction = useCallback((e) => {
     try { e?.preventDefault?.() } catch {}
@@ -1392,10 +865,6 @@ export default function RunningSession({ mode }) {
   }, [applyGhostTargetSettings, buildGhostTimeline, formatGhostLabel, language, resetGhostSession, text.ghost])
 
   const prepareGhostSession = useCallback(() => {
-    if (isWalkMode) {
-      resetGhostSession()
-      return null
-    }
     if (!ghostEnabled) {
       resetGhostSession()
       return null
@@ -1430,7 +899,7 @@ export default function RunningSession({ mode }) {
     applyGhostTargetSettings(targetRecord)
     setGhostMessage(formatGhostLabel(targetRecord) || text.ghost?.targetReady || '')
     return targetRecord
-  }, [applyGhostTargetSettings, buildGhostTimeline, findBestGhostRun, formatGhostLabel, ghostEnabled, goalPreset, ghostTarget, isWalkMode, language, resetGhostSession, text.ghost])
+  }, [applyGhostTargetSettings, buildGhostTimeline, findBestGhostRun, formatGhostLabel, ghostEnabled, goalPreset, ghostTarget, language, resetGhostSession, text.ghost])
 
   const stopTracking = useCallback(() => {
     if (watchStopRef.current) {
@@ -1446,249 +915,6 @@ export default function RunningSession({ mode }) {
       motionStopRef.current = null
     }
   }, [])
-
-  // WALKING MODE distance aggregation (pedometer or GPS fallback)
-  const applyWalkingDistanceSample = useCallback((distance, timestamp, options = {}) => {
-    const nowTs = Number.isFinite(timestamp) ? timestamp : Date.now()
-    const { isMoving } = options || {}
-    const rawDistance = Number.isFinite(distance) ? Math.max(0, distance) : 0
-    const distanceWithOffset = rawDistance + (distanceOffsetRef.current || 0)
-    const prevActivityDistance = Number.isFinite(lastActivityDistanceRef.current)
-      ? lastActivityDistanceRef.current
-      : distanceWithOffset
-    const moved = typeof isMoving === 'boolean'
-      ? isMoving
-      : (distanceWithOffset - prevActivityDistance) > 0
-    totalDistanceRef.current = distanceWithOffset
-    setDistanceM(distanceWithOffset)
-
-    const elapsedWithOffset = updateWalkingElapsed(nowTs, moved)
-      ?? ((elapsedOffsetRef.current || 0) + (sessionStartRef.current ? Math.max(0, nowTs - sessionStartRef.current - pausedAccumulatedRef.current) : 0))
-
-    const avgPace = distanceWithOffset >= MIN_AVG_PACE_DISTANCE_M && elapsedWithOffset > 0
-      ? elapsedWithOffset / (distanceWithOffset / 1000)
-      : null
-    setAvgPaceMs(Number.isFinite(avgPace) ? avgPace : null)
-
-    samplesRef.current.push({ t: nowTs, d: distanceWithOffset })
-    const windowStart = nowTs - CURRENT_PACE_WINDOW_MS
-    while (samplesRef.current.length && samplesRef.current[0].t < windowStart) {
-      samplesRef.current.shift()
-    }
-    setCurrentPaceMs(null)
-    lastActivityDistanceRef.current = distanceWithOffset
-    lastActiveTsRef.current = nowTs
-    persistCarryover({
-      distanceM: distanceWithOffset,
-      elapsedMs: elapsedWithOffset,
-      steps: Number.isFinite(stepCountRef.current) ? stepCountRef.current : null,
-      laps: lapsRef.current,
-    })
-    return { safeDistance: distanceWithOffset, safeElapsed: elapsedWithOffset }
-  }, [persistCarryover, updateWalkingElapsed])
-
-  // stopNativeSession=true: 네이티브 세션도 종료 (정지 버튼)
-  // stopNativeSession=false: JavaScript 상태만 정리 (언마운트, 세션 전환 등)
-  const stopPedometer = useCallback((stopNativeSession = true) => {
-    pedometerActiveRef.current = false
-    pedometerPausedBaseRef.current = null
-    baseStepsRef.current = null
-    const stopper = pedometerStopRef.current
-    pedometerStopRef.current = null
-    if (stopper && stopNativeSession) {
-      try { stopper() } catch {}
-    }
-  }, [])
-
-  const handlePedometerReading = useCallback((reading) => {
-    if (!sessionActive) return
-
-    const rawSteps = Number(reading?.steps)
-    if (!Number.isFinite(rawSteps)) return
-
-    // 날짜가 변경되었는지 먼저 확인 - rawSteps를 전달하여 새로운 base로 설정
-    const resetResult = checkAndResetForNewDay(rawSteps)
-    const ts = Number.isFinite(reading?.timestamp) ? reading.timestamp : Date.now()
-
-    // 날짜 리셋이 발생한 경우, 자정 이후 증분만 계산
-    let midnightStepDelta = 0
-    if (resetResult.didReset && Number.isFinite(resetResult.previousBaseSteps)) {
-      // 자정 직전 baseSteps와 현재 rawSteps의 차이 = 자정 이후 걸음수
-      midnightStepDelta = Math.max(0, rawSteps - resetResult.previousBaseSteps)
-      console.log('[walking] Midnight step delta:', {
-        rawSteps,
-        previousBaseSteps: resetResult.previousBaseSteps,
-        midnightStepDelta
-      })
-    }
-
-    if (baseStepsRef.current === null || rawSteps < baseStepsRef.current) {
-      baseStepsRef.current = rawSteps
-      setBaseSteps(rawSteps)
-    }
-
-    if (isPaused) {
-      pedometerPausedBaseRef.current = rawSteps
-      return
-    }
-
-    if (pedometerPausedBaseRef.current !== null && rawSteps >= pedometerPausedBaseRef.current) {
-      const pausedDelta = rawSteps - pedometerPausedBaseRef.current
-      baseStepsRef.current = (baseStepsRef.current ?? rawSteps) + pausedDelta
-      setBaseSteps(baseStepsRef.current)
-      pedometerPausedBaseRef.current = null
-    }
-
-		const base = baseStepsRef.current ?? rawSteps
-		const sessionStepsLocal = Math.max(0, rawSteps - base)
-
-		// 자정 이후 증분이 있으면 추가 (midnightStepDelta는 이미 자정 이후 걸음수)
-		let totalSteps = sessionStepsLocal + midnightStepDelta + (stepOffsetRef.current || 0)
-		const prevSteps = Number.isFinite(stepCountRef.current) ? stepCountRef.current : 0
-
-		// ⚠️ 안전장치: 어떤 이유로든 새로운 계산값이 이전 값보다 작아지면
-		// (센서 리셋, 오프셋 계산 오차 등) UI 상 걸음 수가 뒤로 가는 일이 없도록 막는다.
-		if (totalSteps < prevSteps) {
-			if (DEBUG_STEPS) {
-				updateStepDebug({
-					rawStepCounter: rawSteps,
-					prevSteps,
-					computedSteps: totalSteps,
-					clampedToPrev: true,
-					source: 'pedometer-clamp',
-					updatedAt: ts,
-				})
-			}
-			totalSteps = prevSteps
-		}
-
-		const stepDelta = totalSteps - prevSteps
-
-    // 걸음수가 증가했을 때: 증가분에 해당하는 시간을 직접 추가
-    if (stepDelta > 0) {
-      // 평균 보행 속도: 4.5 km/h = 1.25 m/s
-      const avgWalkSpeedMps = 1.25
-      // 걸음수 증가분만큼 걸은 거리
-      const distanceForSteps = stepDelta * strideLengthM
-      // 해당 거리를 걷는데 걸린 시간 (초)
-      const timeForSteps = distanceForSteps / avgWalkSpeedMps
-      // ms로 변환하여 활성 시간에 추가
-      walkActiveElapsedRef.current += timeForSteps * 1000
-      // 마지막 틱 업데이트
-      walkLastTickRef.current = ts
-    }
-
-    setSessionSteps(totalSteps)
-    stepCountRef.current = totalSteps
-    setStepCount(totalSteps)
-    appendStepTimeline({ ts, steps: totalSteps })
-
-    // iOS CMPedometer distance 우선 사용 (더 정확함)
-    const distanceFromSensor = Number.isFinite(reading?.distance) && reading.distance > 0
-      ? reading.distance
-      : null
-
-    // Fallback: 안드로이드 또는 iOS distance 없을 때 걸음수 × 보폭
-    const distanceRaw = distanceFromSensor ?? (sessionStepsLocal * strideLengthM)
-
-    // isMoving은 이제 의미 없음 (시간은 이미 위에서 추가됨)
-    applyWalkingDistanceSample(distanceRaw, ts, { isMoving: false })
-
-    if (DEBUG_STEPS) {
-      const distanceWithOffset = distanceRaw + (distanceOffsetRef.current || 0)
-      updateStepDebug({
-        rawStepCounter: rawSteps,
-        sessionSteps: totalSteps,
-        distanceM: distanceWithOffset,
-        source: 'pedometer',
-        updatedAt: ts,
-      })
-    }
-  }, [applyWalkingDistanceSample, appendStepTimeline, checkAndResetForNewDay, isPaused, sessionActive, strideLengthM, updateStepDebug])
-
-  // 핸들러 ref를 항상 최신 상태로 유지 (stale closure 방지)
-  useEffect(() => {
-    pedometerReadingHandlerRef.current = handlePedometerReading
-  }, [handlePedometerReading])
-
-  const startPedometerUpdates = useCallback(async () => {
-    if (!sessionActive || resolvedMode !== 'walk') return false
-
-    const startWithBackground = async () => {
-      const available = await backgroundPedometer.isAvailable()
-      if (!available) return false
-
-      const permission = await backgroundPedometer.requestPermission()
-      const permissionOk = (
-        permission === 'granted'
-        || permission === 'authorized'
-        || permission === 'authorizedAlways'
-        || permission === 'notDetermined'
-        || permission === 'prompt'
-      )
-      if (!permissionOk) {
-        setPedometerReady(false)
-        setPedometerError('permission')
-        pedometerActiveRef.current = false
-        return false
-      }
-
-      await backgroundPedometer.startUpdates((reading) => {
-        pedometerActiveRef.current = true
-        // ref를 통해 항상 최신 핸들러 호출 (stale closure 방지)
-        pedometerReadingHandlerRef.current?.(reading)
-      })
-      pedometerStopRef.current = () => {
-        try { return backgroundPedometer.stopUpdates() } catch {}
-        return null
-      }
-      return true
-    }
-
-    const startWithFallback = async () => {
-      const available = await pedometer.isAvailable()
-      if (!available) return false
-      const permission = await pedometer.requestPermission()
-      const permissionOk = permission !== 'denied'
-      if (!permissionOk) {
-        setPedometerReady(false)
-        setPedometerError('permission')
-        pedometerActiveRef.current = false
-        return false
-      }
-      await pedometer.startUpdates((reading) => {
-        pedometerActiveRef.current = true
-        // ref를 통해 항상 최신 핸들러 호출 (stale closure 방지)
-        pedometerReadingHandlerRef.current?.(reading)
-      })
-      pedometerStopRef.current = () => {
-        try { return pedometer.stopUpdates() } catch {}
-        return null
-      }
-      return true
-    }
-
-    try {
-      let ok = await startWithBackground()
-      if (!ok) {
-        ok = await startWithFallback()
-      }
-      if (ok) {
-        setPedometerReady(true)
-        setPedometerError(null)
-        return true
-      }
-      setPedometerReady(false)
-      setPedometerError('unavailable')
-      pedometerActiveRef.current = false
-      return false
-    } catch (err) {
-      setPedometerReady(false)
-      setPedometerError(err?.message || 'error')
-      pedometerActiveRef.current = false
-      return false
-    }
-  }, [resolvedMode, sessionActive])
 
   const persistHistory = useCallback((record) => {
     setHistory((prev) => {
@@ -1788,17 +1014,6 @@ export default function RunningSession({ mode }) {
     resetGhostSession()
   }, [resolvedMode, resetGhostSession])
 
-  // 워킹 모드는 만보기 전용: 음성/고스트/설정 비활성화
-  useEffect(() => {
-    if (!isWalkMode) return
-    if (voiceEnabled) setVoiceEnabled(false)
-    if (targetPaceMs !== null) setTargetPaceMs(null)
-    if (timeCueMs !== 0) setTimeCueMs(0)
-    if (ghostEnabled) setGhostEnabled(false)
-    if (ghostTarget) setGhostTarget(null)
-    if (ghostMessage) setGhostMessage('')
-  }, [isWalkMode, voiceEnabled, targetPaceMs, timeCueMs, ghostEnabled, ghostTarget, ghostMessage])
-
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
@@ -1814,187 +1029,6 @@ export default function RunningSession({ mode }) {
     }
   }, [])
 
-  useEffect(() => {
-    if (resolvedMode !== 'walk') {
-      setStepCount(null)
-      setDisplayStepCount(null)
-      stepCountRef.current = null
-      stepDisplayRef.current = null
-      if (DEBUG_STEPS) {
-        setStepDebugInfo(null)
-      }
-    }
-  }, [resolvedMode])
-
-  useEffect(() => {
-    if (!sessionActive || resolvedMode !== 'walk') {
-      // 세션이 비활성화되면 UI 상태만 리셋
-      // stopPedometer()는 정지 버튼에서만 호출
-      setPedometerReady(false)
-      setPedometerError(null)
-      setBaseSteps(null)
-      setSessionSteps(0)
-      baseStepsRef.current = null
-      sessionRestoredRef.current = false
-      return undefined
-    }
-
-    // 앱 실행 중일 때만 리스너 시작
-    let cancelled = false
-    ;(async () => {
-      const ok = await startPedometerUpdates()
-      if (!ok && !cancelled) {
-        setSessionSteps(0)
-      }
-    })()
-    return () => {
-      cancelled = true
-      // 워킹 모드에서는 cleanup 시 pedometer를 중지하지 않음
-      // 네이티브 세션은 계속 유지됨
-    }
-  }, [resolvedMode, sessionActive, startPedometerUpdates])
-
-  useEffect(() => () => stopStepAnim(), [stopStepAnim])
-
-  // Animate UI step display so jumps from sensor batches look smoother
-  useEffect(() => {
-    if (!Number.isFinite(stepCount)) {
-      stopStepAnim()
-      setDisplayStepCount(stepCount)
-      stepDisplayRef.current = stepCount
-      updateStepDebug({ displayStepCount: stepCount, source: 'display-reset' })
-      return
-    }
-    const current = Number.isFinite(stepDisplayRef.current) ? stepDisplayRef.current : 0
-    const target = stepCount
-    if (target <= current + 1) {
-      stopStepAnim()
-      setDisplayStepCount(target)
-      stepDisplayRef.current = target
-      updateStepDebug({ displayStepCount: target, source: 'display-direct' })
-      return
-    }
-    stopStepAnim()
-    const stepSize = Math.max(1, Math.floor((target - current) / 20))
-    stepDisplayRef.current = current
-    setDisplayStepCount(current)
-    stepAnimTimerRef.current = setInterval(() => {
-      const next = Math.min(target, (stepDisplayRef.current || 0) + stepSize)
-      stepDisplayRef.current = next
-      setDisplayStepCount(next)
-      updateStepDebug({ displayStepCount: next, source: 'display-anim' })
-      if (next >= target) {
-        stopStepAnim()
-      }
-    }, 50)
-    return stopStepAnim
-  }, [stepCount, stopStepAnim, updateStepDebug])
-
-  // 앱 시작 시 Android 백그라운드 서비스 상태 확인 및 복원
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (resolvedMode !== 'walk') return
-    if (sessionRestoredRef.current) return // 이미 복원했으면 다시 실행하지 않음
-
-    ;(async () => {
-      try {
-        const status = await backgroundPedometer.getServiceStatus()
-        if (status?.isRunning && !sessionActive) {
-          console.log('[RunningSession] Detected running background service, restoring session state')
-          console.log('[RunningSession] Current steps from service:', status.currentSteps)
-
-          // 날짜 체크: 세션 시작 날짜와 오늘 날짜 비교
-          const sessionDate = Number.isFinite(status.sessionStartTime) && status.sessionStartTime > 0
-            ? getDateKeyFromValue(status.sessionStartTime)
-            : null
-          const todayKey = getTodayKey()
-
-          if (sessionDate && sessionDate !== todayKey) {
-            console.log('[RunningSession] Session from different day, resetting', { sessionDate, todayKey })
-            // 네이티브 세션 종료 및 데이터 리셋
-            try {
-              await backgroundPedometer.stopUpdates()
-            } catch {}
-            clearCarryoverState()
-            sessionRestoredRef.current = true
-            return // 복원하지 않고 새로 시작 화면 표시
-          }
-
-          sessionRestoredRef.current = true
-
-          // 캐리오버 기준값 (당일) 로드
-          const carry = loadCarryoverState()
-          const carryValid = carry && carry.mode === 'walk'
-          const carryDistance = carryValid ? Math.max(0, Number(carry.distanceM) || 0) : 0
-          const carryElapsed = carryValid ? Math.max(0, Number(carry.elapsedMs) || 0) : 0
-          const carrySteps = carryValid && Number.isFinite(carry.steps) ? Math.max(0, Number(carry.steps)) : 0
-
-	          const restoredStepsRaw = Number(status.currentSteps)
-	          const restoredCandidate = Number.isFinite(restoredStepsRaw) ? Math.max(0, restoredStepsRaw) : null
-	          // 절대 캐리오버 값보다 작게 복원하지 않음 (UI가 165 → 40처럼 줄어드는 것 방지)
-	          const restoredSteps = restoredCandidate != null
-	            ? Math.max(carrySteps, restoredCandidate)
-	            : carrySteps
-	          const stepDelta = Math.max(0, restoredSteps - carrySteps)
-
-          const stride = Number.isFinite(strideLengthM) && strideLengthM > 0 ? strideLengthM : WALK_STRIDE_M
-          const restoredDistance = carryDistance + stepDelta * stride
-          const avgWalkSpeedMps = 1.25
-          const restoredElapsedActive = carryElapsed + ((stepDelta * stride) / avgWalkSpeedMps) * 1000
-
-          // 스텝/거리/시간 오프셋 재정렬
-          stepOffsetRef.current = restoredSteps
-          stepCountRef.current = restoredSteps
-          setStepCount(restoredSteps)
-          setDisplayStepCount(restoredSteps)
-          setSessionSteps(restoredSteps)
-
-          distanceOffsetRef.current = restoredDistance
-          totalDistanceRef.current = restoredDistance
-          setDistanceM(restoredDistance)
-
-          walkActiveElapsedRef.current = restoredElapsedActive
-          elapsedOffsetRef.current = 0
-          setElapsedMs(restoredElapsedActive)
-
-          const avgPace = restoredDistance >= MIN_AVG_PACE_DISTANCE_M && restoredElapsedActive > 0
-            ? restoredElapsedActive / (restoredDistance / 1000)
-            : null
-          setAvgPaceMs(Number.isFinite(avgPace) ? avgPace : null)
-
-          // 랩 기준값도 현재 거리/시간에 맞춰 재설정
-          lapStartDistanceRef.current = restoredDistance
-          lapTargetRef.current = Math.floor(restoredDistance / lapDistanceM) * lapDistanceM + lapDistanceM
-          walkLapStartElapsedRef.current = restoredElapsedActive
-          if (carryValid && Array.isArray(carry.laps)) {
-            lapsRef.current = carry.laps
-            setLaps(carry.laps)
-          }
-
-          const restoredSessionStart = Number.isFinite(status.sessionStartTime) && status.sessionStartTime > 0
-            ? status.sessionStartTime
-            : Date.now()
-          sessionStartRef.current = restoredSessionStart
-          sessionStartDateRef.current = getDateKeyFromValue(restoredSessionStart) || getTodayKey()
-
-          appendStepTimeline({ ts: Date.now(), steps: restoredSteps })
-
-          // Pedometer 상태 복원
-          setPedometerReady(true)
-          pedometerActiveRef.current = true
-
-          setSessionActive(true)
-          // carryover에서 isPaused 상태 복원 (저장된 상태 유지)
-          const restoredIsPaused = carryValid && carry.isPaused === true
-          setIsPaused(restoredIsPaused)
-
-          console.log('[RunningSession] Session restored - steps:', restoredSteps, 'distance:', restoredDistance, 'isPaused:', restoredIsPaused)
-        }
-      } catch (err) {
-        console.warn('[RunningSession] Failed to check service status:', err)
-      }
-    })()
-  }, [appendStepTimeline, clearCarryoverState, lapDistanceM, loadCarryoverState, resolvedMode, sessionActive, strideLengthM])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -2019,15 +1053,6 @@ export default function RunningSession({ mode }) {
     const interval = setInterval(checkLocale, 500)
     return () => clearInterval(interval)
   }, [language])
-
-  // 날짜 변경 감지: 자정 이후 pedometer 이벤트가 없어도 강제 리셋
-  useEffect(() => {
-    if (!sessionActive || !isWalkMode) return undefined
-    const interval = setInterval(() => {
-      checkAndResetForNewDay(null, true)
-    }, 30000)
-    return () => clearInterval(interval)
-  }, [sessionActive, isWalkMode, checkAndResetForNewDay])
 
   // 테스트용 시드 데이터 정리: seed_12/06, seed_12/07 제거
   useEffect(() => {
@@ -2065,13 +1090,10 @@ export default function RunningSession({ mode }) {
       const distance = totalDistanceRef.current
       const avgPaceSafe = distance > 0 ? (duration / (distance / 1000)) : 0
 
-      // ref에서 최신 값 읽기 (의존성 배열에서 제외하여 타이머 리셋 방지)
-      const currentSteps = stepCountRef.current
       const lapSnapshot = lapsRef.current.map((lap) => ({ ...lap }))
       const routeSnapshot = routePointsRef.current.map((pt) => ({ ...pt }))
 
-      console.log('[walking] Auto-saving session data (periodic):', {
-        steps: currentSteps,
+      console.log('[running] Auto-saving session data (periodic):', {
         distance,
         duration,
       })
@@ -2081,18 +1103,13 @@ export default function RunningSession({ mode }) {
       const avgSpeedKmh = duration > 0 ? (distance / 1000) / (duration / 3600000) : null
       const met = (() => {
         if (!avgSpeedKmh) return null
-        if (avgSpeedKmh < 3) return 2.0
-        if (avgSpeedKmh < 4.5) return 2.8
-        if (avgSpeedKmh < 5.5) return 3.5
-        return 4.3
+        if (avgSpeedKmh < 8) return 8.0  // 런닝
+        if (avgSpeedKmh < 10) return 9.8
+        if (avgSpeedKmh < 12) return 11.0
+        return 12.5
       })()
       const caloriesCalc = met && elapsedMinutes > 0
         ? met * 3.5 * DEFAULT_WEIGHT_KG / 200 * elapsedMinutes
-        : null
-
-      // 케이던스 계산 (cadenceSpmLive 로직 복사)
-      const cadenceCalc = resolvedMode === 'walk' && elapsedMinutes > 0 && Number.isFinite(currentSteps)
-        ? currentSteps / elapsedMinutes
         : null
 
       // 임시 저장 (세션 재개 시 덮어쓰기 가능)
@@ -2110,27 +1127,21 @@ export default function RunningSession({ mode }) {
         targetPaceMs,
         goal: goalRef.current || null,
         voiceEnabled: voiceEnabledRef.current,
-        steps: currentSteps,
-        cadenceSpm: Number.isFinite(cadenceCalc) ? cadenceCalc : undefined,
-        strideLengthM: Number.isFinite(strideLengthM) ? strideLengthM : undefined,
         calories: Number.isFinite(caloriesCalc) ? caloriesCalc : undefined,
         intensityLevel: (() => {
           if (!avgSpeedKmh) return null
-          if (avgSpeedKmh < 3) return 'Slow'
-          if (avgSpeedKmh < 5) return 'Moderate'
-          if (avgSpeedKmh < 7) return 'Fast'
-          return 'Very Fast'
+          if (avgSpeedKmh < 8) return 'Easy'
+          if (avgSpeedKmh < 10) return 'Moderate'
+          if (avgSpeedKmh < 12) return 'Tempo'
+          return 'Sprint'
         })(),
-        goalProgress: resolvedMode === 'walk' && Number.isFinite(currentSteps) && STEP_GOAL_DEFAULT > 0
-          ? (currentSteps / STEP_GOAL_DEFAULT) * 100
-          : undefined,
         elevationGainM: Number.isFinite(elevationGainRef.current) ? elevationGainRef.current : undefined,
         autoSaved: true, // 자동 저장 플래그
       })
     }, AUTO_SAVE_INTERVAL_MS)
 
     return () => clearInterval(intervalId)
-  }, [sessionActive, resolvedMode, lapDistanceM, timeCueMs, targetPaceMs, strideLengthM])
+  }, [sessionActive, resolvedMode, lapDistanceM, timeCueMs, targetPaceMs])
 
   useEffect(() => {
     if (typeof document === 'undefined') return undefined
@@ -2146,8 +1157,6 @@ export default function RunningSession({ mode }) {
           const distance = totalDistanceRef.current
           const avgPaceSafe = distance > 0 ? (duration / (distance / 1000)) : 0
 
-          // ref에서 최신 값 읽기
-          const currentSteps = stepCountRef.current
           const lapSnapshot = lapsRef.current.map((lap) => ({ ...lap }))
           const routeSnapshot = routePointsRef.current.map((pt) => ({ ...pt }))
 
@@ -2156,18 +1165,13 @@ export default function RunningSession({ mode }) {
           const avgSpeedKmh = duration > 0 ? (distance / 1000) / (duration / 3600000) : null
           const met = (() => {
             if (!avgSpeedKmh) return null
-            if (avgSpeedKmh < 3) return 2.0
-            if (avgSpeedKmh < 4.5) return 2.8
-            if (avgSpeedKmh < 5.5) return 3.5
-            return 4.3
+            if (avgSpeedKmh < 8) return 8.0  // 런닝
+            if (avgSpeedKmh < 10) return 9.8
+            if (avgSpeedKmh < 12) return 11.0
+            return 12.5
           })()
           const caloriesCalc = met && elapsedMinutes > 0
             ? met * 3.5 * DEFAULT_WEIGHT_KG / 200 * elapsedMinutes
-            : null
-
-          // 케이던스 계산
-          const cadenceCalc = resolvedMode === 'walk' && elapsedMinutes > 0 && Number.isFinite(currentSteps)
-            ? currentSteps / elapsedMinutes
             : null
 
           // 임시 저장 (세션 재개 시 덮어쓰기 가능)
@@ -2185,33 +1189,23 @@ export default function RunningSession({ mode }) {
             targetPaceMs,
             goal: goalRef.current || null,
             voiceEnabled: voiceEnabledRef.current,
-            steps: currentSteps,
-            cadenceSpm: Number.isFinite(cadenceCalc) ? cadenceCalc : undefined,
-            strideLengthM: Number.isFinite(strideLengthM) ? strideLengthM : undefined,
             calories: Number.isFinite(caloriesCalc) ? caloriesCalc : undefined,
             intensityLevel: (() => {
               if (!avgSpeedKmh) return null
-              if (avgSpeedKmh < 3) return 'Slow'
-              if (avgSpeedKmh < 5) return 'Moderate'
-              if (avgSpeedKmh < 7) return 'Fast'
-              return 'Very Fast'
+              if (avgSpeedKmh < 8) return 'Easy'
+              if (avgSpeedKmh < 10) return 'Moderate'
+              if (avgSpeedKmh < 12) return 'Tempo'
+              return 'Sprint'
             })(),
-            goalProgress: resolvedMode === 'walk' && Number.isFinite(currentSteps) && STEP_GOAL_DEFAULT > 0
-              ? (currentSteps / STEP_GOAL_DEFAULT) * 100
-              : undefined,
             elevationGainM: Number.isFinite(elevationGainRef.current) ? elevationGainRef.current : undefined,
             autoSaved: true, // 자동 저장 플래그
           })
         }
-      } else if (document.visibilityState === 'visible') {
-        // 앱이 포그라운드로 돌아올 때 날짜 변경 확인 (forceReset=true)
-        // pedometer가 없어도 리셋해야 함 (GPS만 사용하는 경우)
-        checkAndResetForNewDay(null, true)
       }
     }
     document.addEventListener('visibilitychange', handleVisibility)
     return () => document.removeEventListener('visibilitychange', handleVisibility)
-  }, [checkAndResetForNewDay, sessionActive, resolvedMode, lapDistanceM, timeCueMs, targetPaceMs, strideLengthM])
+  }, [sessionActive, resolvedMode, lapDistanceM, timeCueMs, targetPaceMs])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2230,17 +1224,6 @@ export default function RunningSession({ mode }) {
       }
     } catch {}
   }, [])
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (resolvedMode !== 'walk') return
-    try {
-      const key = `${PACE_TARGET_STORAGE_KEY}_${resolvedMode}`
-      localStorage.setItem(key, 'off')
-      setTargetPaceMs(null)
-      setTimeCueMs(0)
-    } catch {}
-  }, [resolvedMode])
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -2274,29 +1257,7 @@ export default function RunningSession({ mode }) {
     } catch {}
   }, [goalPreset, resolvedMode])
 
-	  useEffect(() => {
-	    if (typeof window === 'undefined') return
-	    try {
-	      if (!walkGoalConfig) {
-	        localStorage.removeItem(WALK_GOALS_STORAGE_KEY)
-	      } else {
-	        localStorage.setItem(WALK_GOALS_STORAGE_KEY, JSON.stringify(walkGoalConfig))
-	      }
-	    } catch {}
-	  }, [walkGoalConfig])
-
-	  useEffect(() => {
-	    if (typeof window === 'undefined') return
-	    try {
-	      if (!walkBadges || Object.keys(walkBadges).length === 0) {
-	        localStorage.removeItem(WALK_BADGES_STORAGE_KEY)
-	      } else {
-	        localStorage.setItem(WALK_BADGES_STORAGE_KEY, JSON.stringify(walkBadges))
-	      }
-	    } catch {}
-	  }, [walkBadges])
-
-	  useEffect(() => {
+  useEffect(() => {
 	    if (typeof window === 'undefined') return
 	    try {
 	      if (!runGoalConfig) {
@@ -2617,8 +1578,8 @@ export default function RunningSession({ mode }) {
   }, [sessionActive, isPaused, sessionKeepAwake])
 
   useEffect(() => {
-    // 배너 광고는 러닝 중(sessionActive && !isPaused && !isWalkMode)에만 표시
-    const shouldShowBanner = sessionActive && !isPaused && !isWalkMode
+    // 배너 광고는 러닝 중(sessionActive && !isPaused)에만 표시
+    const shouldShowBanner = sessionActive && !isPaused
     const adId = capPlatform === 'ios' ? BANNER_AD_UNITS.ios : BANNER_AD_UNITS.android
 
     if (!shouldShowBanner || !adId) {
@@ -2650,7 +1611,7 @@ export default function RunningSession({ mode }) {
       cancelled = true
       hideBannerAd().catch(() => {})
     }
-  }, [capPlatform, sessionActive, isPaused, isWalkMode])
+  }, [capPlatform, sessionActive, isPaused])
 
   useEffect(() => {
     return () => {
@@ -2658,14 +1619,11 @@ export default function RunningSession({ mode }) {
       releaseWakeLock().catch(() => {})
       hideBannerAd().catch(() => {})
       stopIdlePoll()
-      // 워킹 모드: JavaScript 상태만 정리, 네이티브 세션은 유지
-      // 런닝 모드: 네이티브 세션도 종료
-      stopPedometer(resolvedMode !== 'walk')
     }
-  }, [resolvedMode, stopPedometer, stopTracking, stopIdlePoll])
+  }, [resolvedMode, stopTracking, stopIdlePoll])
 
   useEffect(() => {
-    if (!sessionActive || isPaused || isWalkMode) return undefined
+    if (!sessionActive || isPaused) return undefined
     if (batterySaver) {
       const interval = setInterval(() => {
         if (sessionStartRef.current) {
@@ -2692,26 +1650,10 @@ export default function RunningSession({ mode }) {
     return () => {
       if (raf) cancelAnimationFrame(raf)
     }
-  }, [sessionActive, isPaused, batterySaver, isWalkMode])
-
-  // WALKING: 부드러운 실시간 타임 표시용 경과 업데이트
-  useEffect(() => {
-    if (!sessionActive || isPaused || !isWalkMode) return undefined
-    const tick = () => {
-      const now = Date.now()
-      const last = walkLastTickRef.current
-      const delta = last ? Math.max(0, now - last) : 0
-      const clamped = delta > 0 ? Math.min(delta, STEP_SENSOR_STALE_MS) : 0
-      const elapsed = (elapsedOffsetRef.current || 0) + walkActiveElapsedRef.current + clamped
-      setElapsedMs(elapsed)
-    }
-    const interval = setInterval(tick, 300)
-    return () => clearInterval(interval)
-  }, [sessionActive, isPaused, isWalkMode, updateWalkingElapsed])
+  }, [sessionActive, isPaused, batterySaver])
 
   useEffect(() => {
     if (!sessionActive || isPaused) return
-    if (isWalkMode) return
     if (!voiceEnabledRef.current) return
     if (!timeCueMs || timeCueMs <= 0) return
     if (!nextTimeCueRef.current) {
@@ -2748,7 +1690,6 @@ export default function RunningSession({ mode }) {
 
   useEffect(() => {
     if (!sessionActive || isPaused) return
-    if (isWalkMode) return
     if (!voiceEnabledRef.current) return
     if (!targetPaceMs || targetPaceMs <= 0) return
     if (!currentPaceMs || currentPaceMs <= 0) return
@@ -2810,41 +1751,11 @@ export default function RunningSession({ mode }) {
     return () => clearTimeout(timer)
   }, [goalBanner])
 
-  // Location / step handling (steps는 센서/가속도 기반만 사용)
+  // Location handling - GPS distance tracking
   const handleLocation = useCallback((position) => {
     if (!sessionActive || isPaused) return
 
-    // 1. Common initial processing (날짜 체크에 필요한 최소 값만 먼저 계산)
-    const now = Date.now()
-    const pedometerActive = resolvedMode === 'walk' && pedometerReady && pedometerActiveRef.current
-
-    // 워킹모드일 때 날짜 변경 체크 (GPS/stride 추정 경로)
-    // pedometerActive가 false면 pedometer 이벤트가 없으므로 forceReset=true
-    if (resolvedMode === 'walk') {
-      const shouldForceReset = !pedometerActive
-      const resetResult = checkAndResetForNewDay(null, shouldForceReset)
-      if (resetResult.didReset) {
-        // 날짜 리셋이 발생한 경우, 센서 베이스 초기화하고 현재 이벤트 처리 중단
-        // 다음 이벤트에서 새로운 베이스로 시작
-        stepSessionTokenRef.current = null
-        stepSensorBaseRef.current = null
-        lastSensorStepValueRef.current = null
-        lastStepUpdateTsRef.current = null
-        lastSensorStepTsRef.current = null
-        return
-      }
-    }
-
-    const sessionToken = sessionStartRef.current
-    if (stepSessionTokenRef.current !== sessionToken) {
-      stepSessionTokenRef.current = sessionToken
-      stepSensorBaseRef.current = null
-      lastSensorStepValueRef.current = null
-      lastStepUpdateTsRef.current = null
-      lastSensorStepTsRef.current = null
-    }
-
-    // 2. 나머지 초기 처리
+    // 1. 초기 처리
     const nowTsRaw = Number(position?.timestamp)
     const nowTs = Number.isFinite(nowTsRaw) ? nowTsRaw : Date.now()
     const accuracyRaw = Number.isFinite(position?.accuracy)
@@ -2855,38 +1766,8 @@ export default function RunningSession({ mode }) {
     const gpsSpeedRaw = Number.isFinite(position?.coords?.speed)
       ? Number(position.coords.speed)
       : (Number.isFinite(position?.speed) ? Number(position.speed) : null)
-    const hasStepCounter = Number.isFinite(position?.stepCounter)
-    const usingWalkingGpsFallback = resolvedMode === 'walk' && !pedometerActive
 
-    // Accelerometer magnitude calculation and DEBUG_STEPS logging
-    const accelMag = Number.isFinite(position.accelX) && Number.isFinite(position.accelY) && Number.isFinite(position.accelZ)
-      ? Math.sqrt(position.accelX * position.accelX + position.accelY * position.accelY + position.accelZ * position.accelZ)
-      : null
-    if (DEBUG_STEPS && now - (stepDebugLogTsRef.current || 0) > 1000) {
-      updateStepDebug({
-        rawStepCounter: position.stepCounter ?? null,
-        accel: {
-          x: position.accelX ?? null,
-          y: position.accelY ?? null,
-          z: position.accelZ ?? null,
-          mag: accelMag,
-        },
-        source: 'sensor-event',
-      })
-      stepDebugLogTsRef.current = now
-    }
     setLatestAccuracy(Number.isFinite(accuracyRaw) ? Math.round(accuracyRaw) : null)
-
-    // stepCounter 기준값 초기화 (센서 리셋 대비)
-    const rawSensorSteps = Number(position?.stepCounter)
-    if (Number.isFinite(rawSensorSteps)) {
-      if (stepSensorBaseRef.current === null || rawSensorSteps < stepSensorBaseRef.current) {
-        stepSensorBaseRef.current = rawSensorSteps
-      }
-    }
-    const relativeSensorSteps = Number.isFinite(rawSensorSteps) && Number.isFinite(stepSensorBaseRef.current)
-      ? Math.max(0, rawSensorSteps - stepSensorBaseRef.current)
-      : null
 
     const latitude = Number(position?.latitude ?? position?.coords?.latitude)
     const longitude = Number(position?.longitude ?? position?.coords?.longitude)
@@ -2904,20 +1785,10 @@ export default function RunningSession({ mode }) {
           ? position.coords.altitude
           : null,
       timestamp: nowTs,
-      stepCounter: hasStepCounter ? position.stepCounter : null,
       horizontalAccuracy: Number.isFinite(accuracyRaw) ? accuracyRaw : null,
       speed: gpsSpeedRaw ?? null,
-      accelX: Number.isFinite(position.accelX) ? position.accelX : null,
-      accelY: Number.isFinite(position.accelY) ? position.accelY : null,
-      accelZ: Number.isFinite(position.accelZ) ? position.accelZ : null,
     }
     routePointsRef.current.push(currentPoint)
-
-    // WALKING MODE pedometer-first: skip GPS distance accumulation
-    if (pedometerActive) {
-      lastPointRef.current = currentPoint
-      return
-    }
 
     // 3. GPS-based distance calculation (CORE) - 개선된 DistanceCalculator 사용
     const prevTotalDistance = Number.isFinite(totalDistanceRef.current) ? totalDistanceRef.current : 0
@@ -2953,7 +1824,7 @@ export default function RunningSession({ mode }) {
     } else {
       // Fallback: DistanceCalculator가 없는 경우 기존 로직 사용
       const prev = lastPointRef.current
-      const minDistanceThreshold = usingWalkingGpsFallback ? WALK_GPS_FALLBACK_MIN_SEGMENT_M : MIN_DISTANCE_DELTA
+      const minDistanceThreshold = MIN_DISTANCE_DELTA
 
       if (prev && Number.isFinite(prev.latitude) && Number.isFinite(prev.longitude)) {
         const dtMs = nowTs - prev.timestamp
@@ -2985,23 +1856,11 @@ export default function RunningSession({ mode }) {
               rawDelta = 0
             }
 
-            const maxSpeedMps = resolvedMode === 'run' ? RUN_MAX_SPEED_MPS : WALK_MAX_SPEED_MPS
+            const maxSpeedMps = RUN_MAX_SPEED_MPS
             const speedMps = dtSeconds > 0 ? rawDelta / dtSeconds : 0
             const gpsSpeedMps = Number.isFinite(gpsSpeedRaw) ? gpsSpeedRaw : null
             const speedInvalid = !Number.isFinite(speedMps) || speedMps <= 0 || speedMps > maxSpeedMps
             const gpsSpeedInvalid = gpsSpeedMps !== null && gpsSpeedMps > maxSpeedMps * 1.2
-
-            // WALKING MODE GPS fallback: ignore tiny jitter & near-stationary drift
-            if (usingWalkingGpsFallback && rawDelta > 0) {
-              if (rawDelta < WALK_GPS_FALLBACK_MIN_SEGMENT_M) {
-                rawDelta = 0
-              } else {
-                const speedMpsFiltered = dtSeconds > 0 ? rawDelta / dtSeconds : 0
-                if (speedMpsFiltered < WALK_GPS_FALLBACK_MIN_SPEED_MS) {
-                  rawDelta = 0
-                }
-              }
-            }
 
             if (speedInvalid || gpsSpeedInvalid) {
               rawDelta = 0
@@ -3022,141 +1881,59 @@ export default function RunningSession({ mode }) {
       }
     }
 
-    const stepDistanceFromSensor = (!usingWalkingGpsFallback && resolvedMode === 'walk' && Number.isFinite(relativeSensorSteps))
-      ? relativeSensorSteps * strideLengthM
-      : null
-    if (Number.isFinite(stepDistanceFromSensor)) {
-      total = Math.max(total, stepDistanceFromSensor)
-    }
-
     totalDistanceRef.current = Number.isFinite(total) ? Math.max(prevTotalDistance, total) : prevTotalDistance
     if (shouldUpdateAnchor || !lastPointRef.current) {
       lastPointRef.current = currentPoint
     }
     const safeDistance = Number.isFinite(totalDistanceRef.current) ? totalDistanceRef.current : prevTotalDistance
-    const safeDistanceDelta = Math.max(0, safeDistance - prevTotalDistance)
 
-    // GPS 기반 보폭 보정 (워킹 모드 + GPS 백업 또는 일반 GPS 사용 시)
-    // DistanceCalculator와 Fallback 모두에서 실행되도록 공통 위치에 배치
-    if (resolvedMode === 'walk' && safeDistanceDelta > 0) {
-      const recentSteps = stepCountRef.current || 0
-      const prevGpsSteps = lastGpsStepCountRef.current || 0
-      const stepDeltaGps = recentSteps - prevGpsSteps
-
-      if (stepDeltaGps > 10 && safeDistanceDelta >= 10) {
-        // GPS 구간에서 실제 측정된 보폭 계산
-        const strideFromGps = safeDistanceDelta / stepDeltaGps
-
-        // 유효 범위 체크 (0.4m ~ 1.2m)
-        if (strideFromGps > 0.4 && strideFromGps < 1.2) {
-          // EMA(지수이동평균)로 완만하게 보정 (80% 기존, 20% 새 값)
-          const newStride = strideLengthM * 0.8 + strideFromGps * 0.2
-          setStrideLengthM(newStride)
-        }
-      }
-
-      lastGpsStepCountRef.current = recentSteps
-    }
     const elapsedRaw = sessionStartRef.current
       ? nowTs - sessionStartRef.current - pausedAccumulatedRef.current
       : 0
     const safeElapsed = Number.isFinite(elapsedRaw) ? Math.max(0, elapsedRaw) : 0
     const elapsedWithOffset = (elapsedOffsetRef.current || 0) + safeElapsed
-    const distanceOffset = distanceOffsetRef.current || 0
-    const rawDistancePortion = Math.max(0, safeDistance - distanceOffset)
-    let fallbackElapsed = null
 
-    if (usingWalkingGpsFallback) {
-      const res = applyWalkingDistanceSample(rawDistancePortion, nowTs, { isMoving: safeDistanceDelta > 0 })
-      fallbackElapsed = res?.safeElapsed ?? null
-    } else {
-      setDistanceM(safeDistance)
+    setDistanceM(safeDistance)
 
-      // 4. Elapsed time / average pace calculation
-      setElapsedMs(elapsedWithOffset)
+    // 4. Elapsed time / average pace calculation
+    setElapsedMs(elapsedWithOffset)
 
-      const avgPace = safeDistance >= MIN_AVG_PACE_DISTANCE_M && elapsedWithOffset > 0
-        ? elapsedWithOffset / (safeDistance / 1000)
-        : null
-      setAvgPaceMs(Number.isFinite(avgPace) ? avgPace : null)
+    const avgPace = safeDistance >= MIN_AVG_PACE_DISTANCE_M && elapsedWithOffset > 0
+      ? elapsedWithOffset / (safeDistance / 1000)
+      : null
+    setAvgPaceMs(Number.isFinite(avgPace) ? avgPace : null)
 
-      // 5. Current pace calculation (recent N seconds window)
-      if (Number.isFinite(safeDistance)) {
-        samplesRef.current.push({ t: nowTs, d: safeDistance })
-        const windowStart = nowTs - CURRENT_PACE_WINDOW_MS
-        while (samplesRef.current.length && samplesRef.current[0].t < windowStart) {
-          samplesRef.current.shift()
-        }
-
-        let currentPace = null
-        if (samplesRef.current.length >= 2) {
-          const first = samplesRef.current[0]
-          const distDelta = safeDistance - first.d
-          const dtMsWin = nowTs - first.t
-          if (distDelta >= CURRENT_PACE_MIN_DISTANCE_M && dtMsWin > 0) {
-            currentPace = dtMsWin / (distDelta / 1000)
-          }
-        }
-        setCurrentPaceMs(resolvedMode === 'run' && Number.isFinite(currentPace) ? currentPace : null)
-      } else {
-        setCurrentPaceMs(null)
+    // 5. Current pace calculation (recent N seconds window)
+    if (Number.isFinite(safeDistance)) {
+      samplesRef.current.push({ t: nowTs, d: safeDistance })
+      const windowStart = nowTs - CURRENT_PACE_WINDOW_MS
+      while (samplesRef.current.length && samplesRef.current[0].t < windowStart) {
+        samplesRef.current.shift()
       }
+
+      let currentPace = null
+      if (samplesRef.current.length >= 2) {
+        const first = samplesRef.current[0]
+        const distDelta = safeDistance - first.d
+        const dtMsWin = nowTs - first.t
+        if (distDelta >= CURRENT_PACE_MIN_DISTANCE_M && dtMsWin > 0) {
+          currentPace = dtMsWin / (distDelta / 1000)
+        }
+      }
+      setCurrentPaceMs(Number.isFinite(currentPace) ? currentPace : null)
+    } else {
+      setCurrentPaceMs(null)
     }
 
-    // 6. metricsAccumulator for auxiliary data only (steps, calories, etc.)
+    // 6. metricsAccumulator for auxiliary data
     const snap = metricsRef.current?.addSample(currentPoint) || null
 
-    const distanceStepEstimate = resolvedMode === 'walk' && Number.isFinite(strideLengthM) && strideLengthM > 0
-      ? Math.max(0, Math.round((Number.isFinite(safeDistance) ? safeDistance : 0) / strideLengthM))
-      : null
-
-    if (resolvedMode === 'walk') {
-      const prevSteps = Number.isFinite(stepCountRef.current) ? stepCountRef.current : 0
-      const strideSteps = Number.isFinite(safeDistance) && strideLengthM > 0
-        ? Math.max(0, Math.round(safeDistance / strideLengthM))
-        : null
-      let nextSteps = prevSteps
-      if (Number.isFinite(relativeSensorSteps)) {
-        nextSteps = Math.max(nextSteps, relativeSensorSteps)
-      }
-      if (Number.isFinite(distanceStepEstimate) && distanceStepEstimate > 0) {
-        nextSteps = Math.max(nextSteps, distanceStepEstimate)
-      }
-      if (Number.isFinite(strideSteps)) {
-        nextSteps = Math.max(nextSteps, strideSteps)
-      }
-
-      stepCountRef.current = nextSteps
-      if (nextSteps !== prevSteps) {
-        appendStepTimeline({ ts: nowTs, steps: nextSteps })
-      }
-      if (DEBUG_STEPS) {
-        const distanceDelta = safeDistance - (prevDistanceRef.current || 0)
-        prevDistanceRef.current = safeDistance
-        updateStepDebug({
-          distanceM: safeDistance,
-          distanceDeltaM: distanceDelta,
-          speedMps: Number.isFinite(gpsSpeedRaw) ? gpsSpeedRaw : null,
-          sessionSteps: stepCountRef.current,
-          rawStepCounter: hasStepCounter ? position.stepCounter : null,
-          source: hasStepCounter ? 'sensor-snap' : 'gps-fallback',
-          clampedMaxStepDelta: null,
-        })
-      }
-    } else {
-      stepCountRef.current = null
-    }
-    setStepCount(Number.isFinite(stepCountRef.current) ? stepCountRef.current : (resolvedMode === 'walk' ? 0 : null))
-
-    // Activity markers (no idle toggling)
+    // Activity markers
     lastActivityDistanceRef.current = safeDistance
-    lastActivityStepsRef.current = Number.isFinite(stepCountRef.current) ? stepCountRef.current : lastActivityStepsRef.current
     lastActiveTsRef.current = Number.isFinite(nowTs) ? nowTs : lastActiveTsRef.current
 
     // 7. Ghost mode / lap logic
-    const elapsedForGhost = (usingWalkingGpsFallback && isWalkMode && Number.isFinite(fallbackElapsed))
-      ? fallbackElapsed
-      : safeElapsed
+    const elapsedForGhost = safeElapsed
 
     // Ghost comparison at each kilometer mark
     if (ghostSessionRef.current?.enabled) {
@@ -3181,11 +1958,9 @@ export default function RunningSession({ mode }) {
     if (totalDistanceRef.current >= lapTargetRef.current) {
       const lapIndex = lapsRef.current.length + 1
       const lapDistance = totalDistanceRef.current - lapStartDistanceRef.current
-      const lapDuration = resolvedMode === 'walk'
-        ? Math.max(0, elapsedForGhost - (walkLapStartElapsedRef.current || 0))
-        : lapStartTimeRef.current
-          ? nowTs - lapStartTimeRef.current - lapPausedAccumulatedRef.current
-          : elapsedForGhost
+      const lapDuration = lapStartTimeRef.current
+        ? nowTs - lapStartTimeRef.current - lapPausedAccumulatedRef.current
+        : elapsedForGhost
       const lapPace = lapDuration / (lapDistance / 1000)
       const lap = {
         index: lapIndex,
@@ -3199,9 +1974,6 @@ export default function RunningSession({ mode }) {
       setLaps(lapsRef.current)
       lapStartTimeRef.current = nowTs
       lapStartDistanceRef.current = totalDistanceRef.current
-      if (resolvedMode === 'walk') {
-        walkLapStartElapsedRef.current = elapsedForGhost
-      }
       lapTargetRef.current += lapDistanceM
       lapPausedAccumulatedRef.current = 0
       lapPauseStartRef.current = 0
@@ -3220,7 +1992,7 @@ export default function RunningSession({ mode }) {
         speakOnce(script, language === 'ko' ? 1.08 : 1.04, { lang: speechLocale, delayMs: 0 }).catch(() => {})
       }
     }
-  }, [applyWalkingDistanceSample, checkAndResetForNewDay, getGhostElapsedAtDistance, isPaused, lapDistanceM, language, resolvedMode, sessionActive, pedometerReady, strideLengthM, enterIdleMode, exitIdleMode])
+  }, [getGhostElapsedAtDistance, isPaused, lapDistanceM, language, resolvedMode, sessionActive, enterIdleMode, exitIdleMode])
 
   // keep latest handleLocation in ref for idle polling
   useEffect(() => {
@@ -3295,10 +2067,6 @@ export default function RunningSession({ mode }) {
       stopTracking()
       return undefined
     }
-    if (isWalkMode && locationPermission !== 'granted' && locationPermission !== 'limited') {
-      // 워킹 모드에서 위치 권한이 없으면 GPS 워치는 건너뛰고 만보기만 사용
-      return undefined
-    }
     const stop = watchLocation(
       { enableHighAccuracy: true, timeout: 20000, maximumAge: 1000 },
       handleLocation,
@@ -3316,7 +2084,7 @@ export default function RunningSession({ mode }) {
         watchStopRef.current = null
       }
     }
-  }, [sessionActive, isPaused, handleLocation, stopTracking, isWalkMode, locationPermission])
+  }, [sessionActive, isPaused, handleLocation, stopTracking])
 
   const handleStartSession = async () => {
     if (starting || sessionActive) return
@@ -3327,177 +2095,80 @@ export default function RunningSession({ mode }) {
       setLocationPermission(permission)
       const locationOk = permission === 'granted' || permission === 'limited'
       if (!locationOk) {
-        if (resolvedMode !== 'walk') {
-          pushError('permission')
-          return
-        }
-        // 워킹 모드는 위치 없이도 만보기로 진행 (경고만 표시 가능)
-        console.warn('[running] proceeding with pedometer-only mode (no location permission)')
-      }
-      const platform = capPlatform || resolveCapacitorPlatform()
-      let activityOk = true
-      if (platform === 'android') {
-        activityOk = await ensureActivityRecognitionPermission()
-        if (activityOk) {
-          await maybeRequestIgnoreBatteryOptimizations()
-        }
-      } else if (platform === 'ios') {
-        activityOk = await ensurePedometerPermission()
-      }
-      if (!activityOk) {
-        setError(language === 'ko' ? '신체 활동 권한이 필요합니다.' : 'Activity permission is required for step counting.')
+        pushError('permission')
         return
       }
-      const allowVoice = !isWalkMode && voiceEnabled
-      if (allowVoice) {
+      const platform = capPlatform || resolveCapacitorPlatform()
+      if (platform === 'android') {
+        await maybeRequestIgnoreBatteryOptimizations()
+      }
+      if (voiceEnabled) {
         try {
           await unlockTTS(language === 'ko' ? 'ko-KR' : 'en-US')
         } catch (err) {
           console.warn('[running] TTS unlock failed', err)
         }
       }
-      if (!isWalkMode) {
-        prepareGhostSession()
-      } else {
-        resetGhostSession()
-      }
-      // 워킹 모드: JavaScript 상태만 초기화, 네이티브 세션은 유지 (복원용)
-      // 런닝 모드: 네이티브 세션도 종료
-      stopPedometer(!isWalkMode)
-      setPedometerReady(false)
-      setPedometerError(null)
-      setBaseSteps(null)
-      setSessionSteps(0)
-      baseStepsRef.current = null
-      pedometerPausedBaseRef.current = null
-      pedometerActiveRef.current = false
-      setStrideLengthM(resolveStrideLengthMeters())
-      const carry = loadCarryoverState()
-      const todayKey = getTodayKey()
+      prepareGhostSession()
 
-      // 워킹모드일 때 세션 시작 날짜 저장
-      if (resolvedMode === 'walk') {
-        sessionStartDateRef.current = todayKey
-        console.log('[walking] Session started on date:', todayKey)
-      }
-
-    const validCarry = resolvedMode === 'walk' && carry && carry.dateKey === todayKey && carry.mode === resolvedMode
-      const carryLapDistance = validCarry && Number.isFinite(carry.lapDistanceM)
-        ? (carry.lapDistanceM === 500 ? 500 : 1000)
-        : lapDistanceM
-      const carryDistance = validCarry ? Math.max(0, Number(carry.distanceM) || 0) : 0
-      const carryElapsed = validCarry ? Math.max(0, Number(carry.elapsedMs) || 0) : 0
-      const carrySteps = validCarry ? Math.max(0, Number(carry.steps) || 0) : 0
-      const carryLaps = validCarry && Array.isArray(carry.laps) ? carry.laps : []
-      if (!validCarry && carry && carry.dateKey !== todayKey) {
-        clearCarryoverState()
-        console.log('[walking] Cleared old carryover data from different date')
-      }
-      setLapDistanceM(carryLapDistance)
-      distanceOffsetRef.current = carryDistance
-      elapsedOffsetRef.current = resolvedMode === 'walk' ? 0 : carryElapsed
-      stepOffsetRef.current = carrySteps
-      totalDistanceRef.current = carryDistance
-      walkActiveElapsedRef.current = resolvedMode === 'walk' ? carryElapsed : 0
-      walkLastTickRef.current = null
-      walkLapStartElapsedRef.current = resolvedMode === 'walk' ? carryElapsed : 0
       sessionStartRef.current = Date.now()
       lapStartTimeRef.current = sessionStartRef.current
-      lapStartDistanceRef.current = carryDistance
+      lapStartDistanceRef.current = 0
       lapPausedAccumulatedRef.current = 0
       lapPauseStartRef.current = 0
       pausedAccumulatedRef.current = 0
       pausedIntervalsRef.current.length = 0
-      lapTargetRef.current = Math.floor(carryDistance / carryLapDistance) * carryLapDistance + carryLapDistance
+      lapTargetRef.current = lapDistanceM
       lastPointRef.current = null
       routePointsRef.current = []
       lastAltitudeRef.current = null
       elevationGainRef.current = 0
       samplesRef.current = []
-      lapsRef.current = carryLaps
+      lapsRef.current = []
       smoothedSpeedRef.current = null
       goalRef.current = goalPreset
       goalReachedRef.current = false
       lastTimeCueRef.current = null
-      lastGpsStepCountRef.current = resolvedMode === 'walk' ? carrySteps : null  // GPS 보폭 보정 초기화
+      distanceOffsetRef.current = 0
+      elapsedOffsetRef.current = 0
+      totalDistanceRef.current = 0
       if (timeCueMs && timeCueMs > 0) {
-        const nextCue = Math.ceil((carryElapsed || 0) / timeCueMs) * timeCueMs || timeCueMs
-        nextTimeCueRef.current = nextCue
+        nextTimeCueRef.current = timeCueMs
       } else {
         nextTimeCueRef.current = null
       }
       paceCoachRef.current = { ts: 0, direction: null }
       setGoalBanner(null)
-      setLaps(carryLaps)
+      setLaps([])
       setRoutePoints([])
-      totalDistanceRef.current = carryDistance
-      setDistanceM(carryDistance)
-      const initElapsed = carryElapsed
-      setElapsedMs(initElapsed)
-      const initAvgPace = carryDistance >= MIN_AVG_PACE_DISTANCE_M && initElapsed > 0
-        ? initElapsed / (carryDistance / 1000)
-        : null
-      setAvgPaceMs(Number.isFinite(initAvgPace) ? initAvgPace : null)
-      setStepCount(resolvedMode === 'walk' ? carrySteps : null)
-      setSessionSteps(resolvedMode === 'walk' ? carrySteps : 0)
-      setDisplayStepCount(resolvedMode === 'walk' ? carrySteps : null)
+      setDistanceM(0)
+      setElapsedMs(0)
+      setAvgPaceMs(null)
       setCurrentPaceMs(null)
       setLatestAccuracy(null)
-      if (resolvedMode === 'walk') {
-        if (!validCarry) {
-          stepTimelineRef.current = []
-          setStepTimeline([])
-        }
-        appendStepTimeline({ ts: sessionStartRef.current, steps: carrySteps })
-      }
       setShowStats(false)
       setWorkoutStats(null)
       setSessionActive(true)
       setIsPaused(false)
-      if (resolvedMode === 'walk') {
-        setSessionKeepAwake(false)
-      }
-      stepCountRef.current = resolvedMode === 'walk' ? carrySteps : null
-      stepDisplayRef.current = resolvedMode === 'walk' ? carrySteps : null
-      setDisplayStepCount(resolvedMode === 'walk' ? carrySteps : null)
-      stepSensorSeenRef.current = false
-      lastSensorStepTsRef.current = null
       lastActiveTsRef.current = sessionStartRef.current
-      lastActivityDistanceRef.current = carryDistance
-      lastActivityStepsRef.current = 0
+      lastActivityDistanceRef.current = 0
       idleModeRef.current = false
-      prevDistanceRef.current = 0
-      if (DEBUG_STEPS) {
-        setStepDebugInfo({
-          rawStepCounter: null,
-          sessionSteps: carrySteps,
-          displayStepCount: resolvedMode === 'walk' ? carrySteps : null,
-          distanceM: carryDistance,
-          distanceDeltaM: 0,
-          speedMps: null,
-          source: 'session-start',
-          updatedAt: Date.now(),
-        })
-      }
+
       metricsRef.current = createMetricsAccumulator({
-        mode: resolvedMode === 'walk' ? 'walking' : 'running',
+        mode: 'running',
         userWeightKg: DEFAULT_WEIGHT_KG,
-        userStepGoal: STEP_GOAL_DEFAULT,
         sessionStartTime: sessionStartRef.current,
         pausedIntervals: pausedIntervalsRef.current,
-        stepCounterAtStart: null,
-        enableAccelFallback: resolvedMode === 'walk',
-        onDebug: DEBUG_STEPS ? (payload) => updateStepDebug(payload) : null,
       })
 
       // DistanceCalculator 초기화
       distanceCalculatorRef.current = new DistanceCalculator({
-        mode: resolvedMode === 'run' ? 'run' : 'walk',
+        mode: 'run',
         enableSmoothing: true,
-        initialDistance: carryDistance
+        initialDistance: 0
       })
 
-      samplesRef.current.push({ t: sessionStartRef.current, d: carryDistance })
+      samplesRef.current.push({ t: sessionStartRef.current, d: 0 })
     } catch (err) {
       pushError('generic', err?.message)
     } finally {
@@ -3510,15 +2181,10 @@ export default function RunningSession({ mode }) {
     const now = Date.now()
     pauseStartRef.current = now
     lapPauseStartRef.current = pauseStartRef.current
-    if (isWalkMode) {
-      flushWalkingElapsed(now)
-      walkLastTickRef.current = null
-    }
     setIsPaused(true)
     lastIdleProbeRef.current = null
     stopIdlePoll()
     idleModeRef.current = false
-    pedometerPausedBaseRef.current = null
   }
 
   const handleResume = () => {
@@ -3533,9 +2199,6 @@ export default function RunningSession({ mode }) {
     }
     lapPauseStartRef.current = 0
     pauseStartRef.current = 0
-    if (isWalkMode) {
-      walkLastTickRef.current = null
-    }
     setIsPaused(false)
     lastPointRef.current = null
     smoothedSpeedRef.current = null // Reset speed smoothing after pause
@@ -3554,64 +2217,32 @@ export default function RunningSession({ mode }) {
     }
     const sessionPauseCarry = pauseStartRef.current ? endTs - pauseStartRef.current : 0
 
-    // Get snapshot for auxiliary data only (steps, calories, etc.)
+    // Get snapshot for auxiliary data
     const snapshot = metricsRef.current?.getSnapshot(endTs, pausedIntervalsRef.current) || null
 
-    // Duration: always use our direct calculation
-    const durationRaw = resolvedMode === 'walk'
-      ? flushWalkingElapsed(endTs)
-      : (sessionStartRef.current
-        ? endTs - sessionStartRef.current - pausedAccumulatedRef.current - sessionPauseCarry
-        : (snapshot?.elapsedMs ?? 0))
+    // Duration: use direct calculation
+    const durationRaw = sessionStartRef.current
+      ? endTs - sessionStartRef.current - pausedAccumulatedRef.current - sessionPauseCarry
+      : (snapshot?.elapsedMs ?? 0)
     const duration = Number.isFinite(durationRaw) ? Math.max(0, durationRaw) : 0
 
     // Distance: always use totalDistanceRef.current
     const distance = Number.isFinite(totalDistanceRef.current) ? Math.max(0, totalDistanceRef.current) : 0
 
-    // Step count calculation (auxiliary data from snapshot)
-    const snapSteps = Number.isFinite(snapshot?.steps) ? Math.max(0, snapshot.steps) : null
-    const recordedSteps = Number.isFinite(stepCountRef.current) ? Math.max(0, stepCountRef.current) : null
-    const distanceStepEstimate = resolvedMode === 'walk' && Number.isFinite(strideLengthM) && strideLengthM > 0
-      ? Math.max(0, Math.round(distance / strideLengthM))
-      : null
-    let stepCount = null
-    if (resolvedMode === 'walk') {
-      if (Number.isFinite(recordedSteps)) {
-        stepCount = recordedSteps
-      } else if (Number.isFinite(snapSteps)) {
-        stepCount = snapSteps
-      }
-      if (Number.isFinite(distanceStepEstimate)) {
-        stepCount = Math.max(stepCount ?? 0, distanceStepEstimate)
-      }
-    }
-
-    // Average pace: calculate directly, not from snapshot
+    // Average pace: calculate directly
     const avgPace = (distance >= MIN_AVG_PACE_DISTANCE_M && duration > 0)
       ? duration / (distance / 1000)
       : null
     const avgPaceSafe = Number.isFinite(avgPace) ? avgPace : null
     const calories = Number.isFinite(snapshot?.calories) ? snapshot.calories : 0
-    const cadenceSpmRaw = Number.isFinite(snapshot?.cadenceSpm) ? snapshot.cadenceSpm : (
-      distance > 0 && duration > 0 && Number.isFinite(stepCount)
-        ? stepCount / Math.max(1, duration / 60000)
-        : null
-    )
-    const cadenceSpm = Number.isFinite(cadenceSpmRaw) ? cadenceSpmRaw : null
-    const strideLengthRaw = Number.isFinite(snapshot?.strideLengthM) ? snapshot.strideLengthM : (
-      Number.isFinite(stepCount) && stepCount > 0 ? distance / stepCount : null
-    )
-    const strideLength = Number.isFinite(strideLengthRaw) ? strideLengthRaw : null
     const elevationGain = Number.isFinite(snapshot?.elevationGainM)
       ? snapshot.elevationGainM
       : (Number.isFinite(elevationGainRef.current) ? elevationGainRef.current : 0)
     const intensityLevel = snapshot?.intensity ?? snapshot?.intensityLevel ?? null
-    const snapshotGoalProgress = Number.isFinite(snapshot?.goalProgress) ? snapshot.goalProgress : null
-    const goalProgress = resolvedMode === 'walk' && Number.isFinite(stepCount) && stepCount > 0
-      ? (stepCount / STEP_GOAL_DEFAULT) * 100
-      : snapshotGoalProgress
+
     const lapSnapshot = lapsRef.current.map((lap) => ({ ...lap }))
     const routeSnapshot = routePointsRef.current.map((pt) => ({ ...pt }))
+
     let ghostResult = null
     if (ghostSessionRef.current?.enabled && ghostSessionRef.current.targetRun) {
       const target = ghostSessionRef.current.targetRun
@@ -3624,7 +2255,7 @@ export default function RunningSession({ mode }) {
       } else if (targetGoal?.type === 'time' && Number.isFinite(targetGoal.value)) {
         goalCompleted = duration >= targetGoal.value
       } else if (Number.isFinite(targetDistance)) {
-        goalCompleted = distance >= targetDistance - 10 // fallback distance check
+        goalCompleted = distance >= targetDistance - 10
       }
       if (Number.isFinite(targetDuration)) {
         const diffSeconds = Math.round((duration - targetDuration) / 1000)
@@ -3639,16 +2270,7 @@ export default function RunningSession({ mode }) {
       }
     }
 
-    // Carryover 저장: 같은 날짜 재시작 시 이어서 진행
-    persistCarryover({
-      distanceM: distance,
-      elapsedMs: duration,
-      steps: stepCount,
-      laps: lapSnapshot,
-    })
-
-    // Auto-save session to history immediately
-    // 세션 시작 타임스탬프를 ID로 사용 (자동 저장과 동일 ID로 덮어쓰기)
+    // Save session to history
     persistHistory({
       id: `${sessionStartRef.current}`,
       mode: resolvedMode,
@@ -3664,14 +2286,10 @@ export default function RunningSession({ mode }) {
       goal: goalRef.current || null,
       voiceEnabled: voiceEnabledRef.current,
       ghostResult,
-      steps: stepCount,
-      cadenceSpm,
-      strideLengthM: strideLength,
       calories,
       intensityLevel,
-      goalProgress,
       elevationGainM: elevationGain,
-      autoSaved: false, // 최종 저장은 autoSaved=false (자동 저장 덮어쓰기)
+      autoSaved: false,
     })
 
     const summaryText = SESSION_TEXT[language]?.summary || SESSION_TEXT.en.summary
@@ -3681,26 +2299,12 @@ export default function RunningSession({ mode }) {
       totalDistance: { value: formatDistanceLabel(distance, 2), label: summaryText.distance },
       avgPace: { value: Number.isFinite(avgPaceSafe) ? formatPaceLabel(avgPaceSafe) : '--:-- /km', label: summaryText.avgPace },
       laps: { value: `${lapSnapshot.length}`, label: summaryText.laps },
-      ...(Number.isFinite(stepCount)
-        ? { steps: { value: stepCount.toLocaleString(), label: summaryText.steps || 'Steps' } }
-        : {}),
-      ...(Number.isFinite(cadenceSpm)
-        ? { cadence: { value: `${cadenceSpm.toFixed(0)}`, label: summaryText.cadence || 'Cadence (spm)' } }
-        : {}),
-      ...(Number.isFinite(strideLength)
-        ? { stride: { value: `${(strideLength).toFixed(2)} m`, label: summaryText.stride || 'Stride' } }
-        : {}),
-      ...(true
-        ? { calories: { value: Number.isFinite(caloriesValue) ? `${caloriesValue.toFixed(0)} kcal` : '-- kcal', label: summaryText.calories || 'Calories' } }
-        : {}),
+      calories: { value: Number.isFinite(caloriesValue) ? `${caloriesValue.toFixed(0)} kcal` : '-- kcal', label: summaryText.calories || 'Calories' },
       ...(Number.isFinite(elevationGain)
         ? { elevation: { value: `${elevationGain.toFixed(0)} m`, label: summaryText.elevation || 'Elevation Gain' } }
         : {}),
       ...(intensityLevel
         ? { intensity: { value: intensityLevel, label: summaryText.intensity || 'Intensity' } }
-        : {}),
-      ...(Number.isFinite(goalProgress)
-        ? { goalProgress: { value: `${goalProgress.toFixed(0)}%`, label: summaryText.goalProgress || 'Goal' } }
         : {}),
     })
     setSummaryMeta({
@@ -3716,20 +2320,15 @@ export default function RunningSession({ mode }) {
       avgPaceMs: avgPaceSafe,
       lapCount: lapSnapshot.length,
       ghostResult,
-      cadenceSpm,
-      strideLengthM: strideLength,
       calories,
       intensityLevel,
-      goalProgress,
       elevationGainM: elevationGain,
-      steps: stepCount,
-	      // Running weekly/monthly distance goal context (for summary overlay)
-	      runWeeklyTotalDistanceM,
-	      runMonthlyTotalDistanceM,
-	      runWeeklyGoalProgress,
-	      runMonthlyGoalProgress,
-	      runWeeklyTargetKm: runGoalConfig?.weeklyDistanceKm?.target || RUN_WEEKLY_DISTANCE_GOAL_KM_DEFAULT,
-	      runMonthlyTargetKm: runGoalConfig?.monthlyDistanceKm?.target || RUN_MONTHLY_DISTANCE_GOAL_KM_DEFAULT,
+      runWeeklyTotalDistanceM,
+      runMonthlyTotalDistanceM,
+      runWeeklyGoalProgress,
+      runMonthlyGoalProgress,
+      runWeeklyTargetKm: runGoalConfig?.weeklyDistanceKm?.target || RUN_WEEKLY_DISTANCE_GOAL_KM_DEFAULT,
+      runMonthlyTargetKm: runGoalConfig?.monthlyDistanceKm?.target || RUN_MONTHLY_DISTANCE_GOAL_KM_DEFAULT,
       ghostTarget: ghostSessionRef.current?.enabled ? {
         id: ghostSessionRef.current.targetRun?.id || null,
         distanceM: resolveRecordDistance(ghostSessionRef.current.targetRun),
@@ -3744,59 +2343,24 @@ export default function RunningSession({ mode }) {
     setGhostEnabled(false)
     setGhostTarget(null)
     setGhostMessage('')
-  }, [flushWalkingElapsed, language, lapDistanceM, persistCarryover, persistHistory, resolvedMode, resetGhostSession, resolveRecordDistance, stopTracking, stopIdlePoll, strideLengthM, timeCueMs, targetPaceMs])
+  }, [language, lapDistanceM, persistHistory, resolvedMode, resetGhostSession, resolveRecordDistance, stopTracking, stopIdlePoll, timeCueMs, targetPaceMs])
 
   const handleEndSession = () => {
     if (!sessionActive) return
-    if (resolvedMode === 'walk') {
-      // 워킹 모드: 정지 버튼 = 일시정지 (세션 유지, 걸음수 화면에 표시 유지)
-      const endTs = Date.now()
-      const carryDistance = Number.isFinite(totalDistanceRef.current) ? totalDistanceRef.current : distanceM
-      const finalElapsed = flushWalkingElapsed(endTs) ?? elapsedMs
-      const carryElapsed = Number.isFinite(finalElapsed) ? finalElapsed : 0
-      const carrySteps = Number.isFinite(stepCountRef.current) ? stepCountRef.current : (Number.isFinite(stepCount) ? stepCount : 0)
-
-      // carryover에 현재 상태 저장 (다시 시작할 때 복원용)
-      persistCarryover({
-        distanceM: carryDistance,
-        elapsedMs: carryElapsed,
-        steps: carrySteps,
-        laps: lapsRef.current,
-        isPaused: true,  // 일시정지 상태 저장
-      })
-
-      // GPS 추적만 중지, 네이티브 pedometer는 계속 실행
-      stopTracking()
-      stopIdlePoll()
-      idleModeRef.current = false
-      setSessionKeepAwake(false)
-      // 워킹 모드에서는 sessionActive=true 유지, isPaused=true로 설정
-      // 이렇게 하면 화면에 걸음수가 계속 표시됨
-      setIsPaused(true)
-      return
-    }
     setSessionActive(false)
     setIsPaused(false)
     // DistanceCalculator 리셋
     if (distanceCalculatorRef.current) {
       distanceCalculatorRef.current = null
     }
-    // GPS 보폭 보정 ref 초기화
-    lastGpsStepCountRef.current = null
-    // 세션 종료 시 날짜 ref 초기화
-    if (resolvedMode === 'walk') {
-      sessionStartDateRef.current = null
-    }
     finalizeSession()
   }
 
 
   const nextLapMeters = Math.max(0, lapTargetRef.current - totalDistanceRef.current)
-  const startButtonLabel = isWalkMode
-    ? (language === 'ko' ? '시작' : 'Start')
-    : (language === 'ko'
-      ? `${modeTitle}${text.setup.startSuffix}`
-      : `${text.setup.startPrefix} ${modeTitle}`.trim())
+  const startButtonLabel = language === 'ko'
+    ? `${modeTitle}${text.setup.startSuffix}`
+    : `${text.setup.startPrefix} ${modeTitle}`.trim()
   const timeCueLabel = timeCueMs
     ? `${Math.round(timeCueMs / 60000)}${language === 'ko' ? '분' : 'm'}`
     : language === 'ko'
@@ -3810,136 +2374,21 @@ export default function RunningSession({ mode }) {
     ? (text.ghost?.disableButton || 'Cancel challenge')
     : (text.ghost?.enableButton || 'Start challenge')
 
-	  // Live derived metrics (walking)
-	  const elapsedMinutesLive = elapsedMs > 0 ? elapsedMs / 60000 : 0
-	  const avgSpeedKmhLive = elapsedMs > 0 ? (distanceM / 1000) / (elapsedMs / 3600000) : null
-	  // 워킹 메인 "걸음 수"는 항상 센서의 최신 stepCount를 우선 사용해서
-	  // 위클리/먼슬리 카드 및 다른 만보기 앱과 값이 바로 맞도록 함.
-	  // (displayStepCount 는 애니메이션용 보조 값으로만 사용)
-	  const uiStepCount = Number.isFinite(stepCount)
-	    ? stepCount
-	    : (Number.isFinite(displayStepCount) ? displayStepCount : stepCount)
-  const cadenceSpmLive = isWalkMode && elapsedMinutesLive > 0 && Number.isFinite(stepCount)
-    ? stepCount / elapsedMinutesLive
-    : null
-  const strideLengthLive = isWalkMode && Number.isFinite(stepCount) && stepCount > 0
-    ? distanceM / stepCount
-    : null
-  const elapsedClockWalk = formatClock(elapsedMs, { showHours: elapsedMs >= 3600000, showCentiseconds: false })
+  // Live derived metrics
+  const elapsedMinutesLive = elapsedMs > 0 ? elapsedMs / 60000 : 0
+  const avgSpeedKmhLive = elapsedMs > 0 ? (distanceM / 1000) / (elapsedMs / 3600000) : null
   const elapsedClockRun = formatClock(elapsedMs, { showHours: true, showCentiseconds: true })
-  const formatMonthLabel = useCallback((monthIndex) => {
-    const month = monthIndex + 1
-    const year = new Date().getFullYear()
-    if (language === 'ko') return `${year}년 ${month}월`
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-    return `${monthNames[monthIndex]} ${year}`
-  }, [language])
-  const headerDateLabel = useMemo(() => {
-    const now = new Date()
-    const fmt = (d) => `${d.getMonth() + 1}/${d.getDate()}`
-    if (chartTab === 'day') {
-      return fmt(now)
-    }
-    if (chartTab === 'week') {
-      const start = new Date(now)
-      start.setDate(now.getDate() - 6)
-      return `${fmt(start)} ~ ${fmt(now)}`
-    }
-    if (chartTab === 'month') {
-      return formatMonthLabel(now.getMonth())
-    }
-    return ''
-  }, [chartTab, formatMonthLabel])
   const metLive = (() => {
     if (!avgSpeedKmhLive) return null
-    if (avgSpeedKmhLive < 3) return 2.0
-    if (avgSpeedKmhLive < 4.5) return 2.8
-    if (avgSpeedKmhLive < 5.5) return 3.5
-    return 4.3
+    if (avgSpeedKmhLive < 8) return 8.0  // 런닝 MET 값
+    if (avgSpeedKmhLive < 10) return 9.8
+    if (avgSpeedKmhLive < 12) return 11.0
+    return 12.5
   })()
   const caloriesLive = metLive && elapsedMinutesLive > 0
     ? metLive * 3.5 * DEFAULT_WEIGHT_KG / 200 * elapsedMinutesLive
     : null
   const elevationGainLive = Number.isFinite(elevationGainRef.current) ? elevationGainRef.current : null
-  const goalProgressLive = isWalkMode && Number.isFinite(stepCount) && STEP_GOAL_DEFAULT > 0
-    ? (stepCount / STEP_GOAL_DEFAULT) * 100
-    : null
-	  const walkCurrentSteps = useMemo(() => {
-	    if (!isWalkMode) return null
-	    if (Number.isFinite(stepCount)) return stepCount
-	    if (Number.isFinite(displayStepCount)) return displayStepCount
-	    if (Number.isFinite(stepCountRef.current)) return stepCountRef.current
-	    return null
-	  }, [isWalkMode, stepCount, displayStepCount])
-	  const {
-	    walkWeeklyTotalSteps,
-	    walkWeeklyGoalProgress,
-	    walkMonthlyTotalSteps,
-	    walkMonthlyGoalProgress,
-	  } = useMemo(() => {
-	    const base = {
-	      walkWeeklyTotalSteps: null,
-	      walkWeeklyGoalProgress: null,
-	      walkMonthlyTotalSteps: null,
-	      walkMonthlyGoalProgress: null,
-	    }
-	    if (!isWalkMode) return base
-	    const weeklyTarget = walkGoalConfig?.weeklySteps?.target || WALK_WEEKLY_STEPS_GOAL_DEFAULT
-	    const monthlyTarget = walkGoalConfig?.monthlySteps?.target || WALK_MONTHLY_STEPS_GOAL_DEFAULT
-	    const today = new Date()
-	    const weekStart = new Date(today)
-	    weekStart.setDate(today.getDate() - 6)
-	    const dailySteps = {}
-	    if (Array.isArray(history)) {
-	      for (const entry of history) {
-	        if (!entry || entry.mode !== 'walk') continue
-	        const steps = Number(entry.steps)
-	        if (!Number.isFinite(steps) || steps <= 0) continue
-	        const ts = entry.startedAt || entry.timestamp
-	        if (!ts) continue
-	        const d = new Date(ts)
-	        if (Number.isNaN(d.getTime())) continue
-	        const key = formatDateKey(d)
-	        const prev = dailySteps[key] || 0
-	        if (steps > prev) dailySteps[key] = steps
-	      }
-	    }
-	    // 오늘 실시간 걸음수 반영 (history에 있는 값보다 크면 덮어씀)
-	    if (Number.isFinite(walkCurrentSteps) && walkCurrentSteps > 0) {
-	      const todayKey = formatDateKey(today)
-	      const prev = dailySteps[todayKey] || 0
-	      if (walkCurrentSteps > prev) dailySteps[todayKey] = walkCurrentSteps
-	    }
-	    let weekTotal = 0
-	    let monthTotal = 0
-	    const currentYear = today.getFullYear()
-	    const currentMonth = today.getMonth()
-	    for (const [key, steps] of Object.entries(dailySteps)) {
-	      const [y, m, d] = key.split('-').map((v) => Number(v))
-	      if (!Number.isFinite(y) || !Number.isFinite(m) || !Number.isFinite(d)) continue
-	      const date = new Date(y, m - 1, d)
-	      if (Number.isNaN(date.getTime())) continue
-	      if (date > today) continue
-	      if (date >= weekStart) {
-	        weekTotal += steps
-	      }
-	      if (date.getFullYear() === currentYear && date.getMonth() === currentMonth) {
-	        monthTotal += steps
-	      }
-	    }
-	    const clampPct = (v) => {
-	      if (!Number.isFinite(v)) return null
-	      return Math.min(v, 300)
-	    }
-	    const weeklyPct = weeklyTarget > 0 ? clampPct((weekTotal / weeklyTarget) * 100) : null
-	    const monthlyPct = monthlyTarget > 0 ? clampPct((monthTotal / monthlyTarget) * 100) : null
-	    return {
-	      walkWeeklyTotalSteps: weekTotal,
-	      walkWeeklyGoalProgress: weeklyPct,
-	      walkMonthlyTotalSteps: monthTotal,
-	      walkMonthlyGoalProgress: monthlyPct,
-	    }
-	  }, [history, isWalkMode, walkCurrentSteps, walkGoalConfig])
 
 	  const {
 	    runWeeklyTotalDistanceM,
@@ -3947,13 +2396,6 @@ export default function RunningSession({ mode }) {
 	    runMonthlyTotalDistanceM,
 	    runMonthlyGoalProgress,
 	  } = useMemo(() => {
-	    const base = {
-	      runWeeklyTotalDistanceM: null,
-	      runWeeklyGoalProgress: null,
-	      runMonthlyTotalDistanceM: null,
-	      runMonthlyGoalProgress: null,
-	    }
-	    if (isWalkMode) return base
 	    const weeklyTargetKm = runGoalConfig?.weeklyDistanceKm?.target || RUN_WEEKLY_DISTANCE_GOAL_KM_DEFAULT
 	    const monthlyTargetKm = runGoalConfig?.monthlyDistanceKm?.target || RUN_MONTHLY_DISTANCE_GOAL_KM_DEFAULT
 	    const today = new Date()
@@ -3993,99 +2435,29 @@ export default function RunningSession({ mode }) {
 	      runMonthlyTotalDistanceM: monthTotalM,
 	      runMonthlyGoalProgress: monthlyPct,
 	    }
-	  }, [history, isWalkMode, runGoalConfig])
+	  }, [history, runGoalConfig])
 
 	  useEffect(() => {
-	    if (!isWalkMode) return
-	    if (walkWeeklyGoalProgress == null) return
-	    if (walkWeeklyGoalProgress < 100) return
-	    if (walkBadges && walkBadges[WALK_BADGE_WEEK_GOAL_FIRST]) return
-	    unlockWalkBadge(WALK_BADGE_WEEK_GOAL_FIRST)
-	  }, [isWalkMode, walkWeeklyGoalProgress, walkBadges, unlockWalkBadge])
-
-	  useEffect(() => {
-	    if (isWalkMode) return
 	    if (runWeeklyGoalProgress == null) return
 	    if (runWeeklyGoalProgress < 100) return
 	    if (runBadges && runBadges[RUN_BADGE_WEEK_DISTANCE_FIRST]) return
 	    unlockRunBadge(RUN_BADGE_WEEK_DISTANCE_FIRST)
-	  }, [isWalkMode, runWeeklyGoalProgress, runBadges, unlockRunBadge])
+	  }, [runWeeklyGoalProgress, runBadges, unlockRunBadge])
 
 	  useEffect(() => {
-	    if (isWalkMode) return
 	    if (runMonthlyGoalProgress == null) return
 	    if (runMonthlyGoalProgress < 100) return
 	    if (runBadges && runBadges[RUN_BADGE_MONTH_DISTANCE_FIRST]) return
 	    unlockRunBadge(RUN_BADGE_MONTH_DISTANCE_FIRST)
-	  }, [isWalkMode, runMonthlyGoalProgress, runBadges, unlockRunBadge])
+	  }, [runMonthlyGoalProgress, runBadges, unlockRunBadge])
 
 	  useEffect(() => {
 	    if (!badgeBanner) return
 	    const timer = setTimeout(() => setBadgeBanner(null), 6000)
 	    return () => clearTimeout(timer)
 	  }, [badgeBanner])
-		  const walkGoalsSummary = isWalkMode
-		    ? (() => {
-		        const cards = []
-		        const weeklyCfg = walkGoalConfig?.weeklySteps
-		        const monthlyCfg = walkGoalConfig?.monthlySteps
-		        if (weeklyCfg?.active && walkWeeklyGoalProgress != null) {
-		          const pct = Math.max(0, Math.min(100, walkWeeklyGoalProgress || 0))
-		          const current = walkWeeklyTotalSteps || 0
-		          const target = weeklyCfg.target || WALK_WEEKLY_STEPS_GOAL_DEFAULT
-		          const currentLabel = formatStepsCompact(current, language)
-		          const targetLabel = formatStepsCompact(target, language)
-		          cards.push(
-		            <div key="week" className="rounded-2xl border border-emerald-400/25 bg-emerald-500/10 px-3 py-2">
-		              <p className="text-[0.65rem] font-semibold text-emerald-200 uppercase tracking-[0.18em]">
-		                {language === 'ko' ? '위클리 골' : 'Weekly goal'}
-		              </p>
-		              <p className="mt-0.5 text-xs font-semibold text-white">
-		                {currentLabel} / {targetLabel} {language === 'ko' ? '보' : 'steps'}
-		              </p>
-		              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-		                <div
-		                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"
-		                  style={{ width: `${pct}%` }}
-		                />
-		              </div>
-		            </div>,
-		          )
-		        }
-		        if (monthlyCfg?.active && walkMonthlyGoalProgress != null) {
-		          const pct = Math.max(0, Math.min(100, walkMonthlyGoalProgress || 0))
-		          const current = walkMonthlyTotalSteps || 0
-		          const target = monthlyCfg.target || WALK_MONTHLY_STEPS_GOAL_DEFAULT
-		          const currentLabel = formatStepsCompact(current, language)
-		          const targetLabel = formatStepsCompact(target, language)
-		          cards.push(
-		            <div key="month" className="rounded-2xl border border-sky-400/25 bg-sky-500/10 px-3 py-2">
-		              <p className="text-[0.65rem] font-semibold text-sky-200 uppercase tracking-[0.18em]">
-		                {language === 'ko' ? '먼슬리 골' : 'Monthly goal'}
-		              </p>
-		              <p className="mt-0.5 text-xs font-semibold text-white">
-		                {currentLabel} / {targetLabel} {language === 'ko' ? '보' : 'steps'}
-		              </p>
-		              <div className="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
-		                <div
-		                  className="h-full rounded-full bg-gradient-to-r from-sky-400 to-indigo-400"
-		                  style={{ width: `${pct}%` }}
-		                />
-		              </div>
-		            </div>,
-		          )
-		        }
-		        if (!cards.length) return null
-		        return (
-		          <div className="mt-1 grid grid-cols-2 gap-2">
-		            {cards}
-		          </div>
-		        )
-		      })()
-		    : null
 
-	  const runGoalsSummary = !isWalkMode
-	    ? (() => {
+	  const runGoalsSummary = (() => {
 	        const cards = []
 	        const weeklyCfg = runGoalConfig?.weeklyDistanceKm
 	        const monthlyCfg = runGoalConfig?.monthlyDistanceKm
@@ -4142,7 +2514,7 @@ export default function RunningSession({ mode }) {
 	          </div>
 	        )
 	      })()
-	    : null
+
 	  const intensityLive = (() => {
     if (!avgSpeedKmhLive) return null
     if (avgSpeedKmhLive < 3) return 'Slow'
@@ -4201,23 +2573,14 @@ export default function RunningSession({ mode }) {
     { value: 5 * 60 * 1000, label: language === 'ko' ? '5분마다' : 'Every 5 min' },
     { value: 10 * 60 * 1000, label: language === 'ko' ? '10분마다' : 'Every 10 min' },
   ]
-  const paceGuideOptions = (resolvedMode === 'walk'
-    ? [
-        { value: null, label: language === 'ko' ? '끄기' : 'Off' },
-        { value: 1 * 60 * 1000, label: formatPaceLabel(1 * 60 * 1000) },
-        { value: 3 * 60 * 1000, label: formatPaceLabel(3 * 60 * 1000) },
-        { value: 5 * 60 * 1000, label: formatPaceLabel(5 * 60 * 1000) },
-        { value: 7 * 60 * 1000, label: formatPaceLabel(7 * 60 * 1000) },
-        { value: 10 * 60 * 1000, label: formatPaceLabel(10 * 60 * 1000) },
-      ]
-    : (() => {
-        const opts = [{ value: null, label: language === 'ko' ? '끄기' : 'Off' }]
-        for (let paceMin = 4; paceMin <= 10.0001; paceMin += 0.5) {
-          const paceMs = paceMin * 60 * 1000
-          opts.push({ value: paceMs, label: formatPaceLabel(paceMs) })
-        }
-        return opts
-      })())
+  const paceGuideOptions = (() => {
+    const opts = [{ value: null, label: language === 'ko' ? '끄기' : 'Off' }]
+    for (let paceMin = 4; paceMin <= 10.0001; paceMin += 0.5) {
+      const paceMs = paceMin * 60 * 1000
+      opts.push({ value: paceMs, label: formatPaceLabel(paceMs) })
+    }
+    return opts
+  })()
 
   const modeHistory = Array.isArray(history)
     ? history.filter((item) => !item.mode || item.mode === resolvedMode)
@@ -4231,48 +2594,13 @@ export default function RunningSession({ mode }) {
         paddingTop: bannerAtTop ? bannerSpaceHeight : 0,
       }}
     >
-      {DEBUG_STEPS && stepDebugInfo && (
-        <div
-          className="fixed z-50 max-w-xs rounded-lg border border-white/10 bg-black/70 p-3 text-xs text-white/90 shadow-lg backdrop-blur-sm"
-          style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)' }}
-          onClick={() => setStepDebugCollapsed((c) => !c)}
-        >
-          <p className="text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-emerald-200 mb-1">
-            STEP DEBUG {stepDebugCollapsed ? '(tap to expand)' : ''}
-          </p>
-          {!stepDebugCollapsed && (
-            <div className="space-y-1 leading-tight">
-              <p>raw: {stepDebugInfo?.rawStepCounter ?? '-'}</p>
-              <p>session: {stepDebugInfo?.sessionSteps ?? '-'}</p>
-              <p>display: {stepDebugInfo?.displayStepCount ?? '-'}</p>
-              <p>source: {stepDebugInfo?.source || '-'}</p>
-              <p>dist(m): {stepDebugInfo?.distanceM != null ? stepDebugInfo.distanceM.toFixed(1) : '-'}</p>
-              <p>dΔ(m): {stepDebugInfo?.distanceDeltaM != null ? stepDebugInfo.distanceDeltaM.toFixed(2) : '-'}</p>
-              <p>speed(m/s): {stepDebugInfo?.speedMps != null ? stepDebugInfo.speedMps.toFixed(2) : '-'}</p>
-              <p>
-                accel:{' '}
-                {stepDebugInfo?.accel
-                  ? `x=${stepDebugInfo.accel.x ?? '-'} y=${stepDebugInfo.accel.y ?? '-'} z=${stepDebugInfo.accel.z ?? '-'} mag=${stepDebugInfo.accel.mag ?? '-'}`
-                  : '-'}
-              </p>
-              <p className="text-[0.65rem] text-white/70">
-                updated:{' '}
-                {stepDebugInfo?.updatedAt
-                  ? new Date(stepDebugInfo.updatedAt).toLocaleTimeString()
-                  : '-'}
-              </p>
-              <p className="text-[0.65rem] text-white/60">(tap to collapse)</p>
-            </div>
-          )}
-        </div>
-      )}
       {error && (
         <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100">
           {error}
         </div>
       )}
 
-      {(sessionActive || isWalkMode) ? (
+      {sessionActive ? (
         <>
           {goalBanner && (
             <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/10 p-3 text-emerald-50 shadow-lg">
@@ -4320,14 +2648,7 @@ export default function RunningSession({ mode }) {
             {/* GPS Accuracy Badge */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex-1">
-                {!isWalkMode && (
-                  <h3 className="text-base font-black tracking-tight text-white/90">{modeTitle}</h3>
-                )}
-              </div>
-              <div className="flex-1 text-center">
-                {isWalkMode && (
-                  <span className="text-sm font-semibold text-white/80">{headerDateLabel}</span>
-                )}
+                <h3 className="text-base font-black tracking-tight text-white/90">{modeTitle}</h3>
               </div>
               <div className="flex-1 flex justify-end">
                 {latestAccuracy ? (
@@ -4338,21 +2659,7 @@ export default function RunningSession({ mode }) {
               </div>
             </div>
 
-            {/* Walk chart on top when session is active */}
-            {isWalkMode && (
-              <div className="mb-3">
-                <StepChart
-                  tab={chartTab}
-                  language={language}
-                  timeline={stepTimeline}
-                  history={history}
-			              currentSteps={Number.isFinite(walkCurrentSteps) ? walkCurrentSteps : 0}
-                  onTabChange={setChartTab}
-                />
-              </div>
-            )}
-            {!isWalkMode && (
-              <div className="mb-3 flex flex-wrap gap-2">
+            <div className="mb-3 flex flex-wrap gap-2">
                 <span className="rounded-full bg-white/10 px-3 py-1 text-[0.7rem] font-semibold text-white/80">
                   {text.setup.timeCue}: {timeCueLabel}
                 </span>
@@ -4369,131 +2676,59 @@ export default function RunningSession({ mode }) {
                     {text.goal.title}: {goalLabel}
                   </span>
                 )}
-              </div>
-            )}
+            </div>
 
             {/* Main Timer */}
             <div className="text-center mb-3">
-              {isWalkMode ? (
-                <>
-                  <div className="text-6xl font-black tracking-tighter text-white tabular-nums">
-                    {Number.isFinite(uiStepCount) ? uiStepCount.toLocaleString() : '--'}
-                  </div>
-                  <p className="mt-1 text-sm font-semibold text-white/70">
-                    {language === 'ko' ? '걸음 수' : 'Steps'}
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="text-6xl font-black tracking-tighter text-white tabular-nums">
-                    {elapsedClockRun}
-                  </div>
-                  {/* Current Speed Display - 타이머 바로 아래 */}
-                  <div className="mt-2">
-                    <p className="text-[0.65rem] uppercase tracking-[0.2em] text-cyan-300/70 font-bold mb-1">
-                      {text.stats.currentSpeed}
-                    </p>
-                    <div className="flex items-baseline justify-center gap-2">
-                      <span className={`text-3xl font-black text-cyan-100 tabular-nums transition-all duration-300 ${!isPaused ? 'animate-pulse' : ''}`}>
-                        {formatSpeedLabel(currentPaceMs).split(' ')[0]}
-                      </span>
-                      <span className="text-base font-bold text-cyan-300/80">km/h</span>
-                    </div>
-                  </div>
-                </>
-              )}
+              <div className="text-6xl font-black tracking-tighter text-white tabular-nums">
+                {elapsedClockRun}
+              </div>
+              {/* Current Speed Display - 타이머 바로 아래 */}
+              <div className="mt-2">
+                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-cyan-300/70 font-bold mb-1">
+                  {text.stats.currentSpeed}
+                </p>
+                <div className="flex items-baseline justify-center gap-2">
+                  <span className={`text-3xl font-black text-cyan-100 tabular-nums transition-all duration-300 ${!isPaused ? 'animate-pulse' : ''}`}>
+                    {formatSpeedLabel(currentPaceMs).split(' ')[0]}
+                  </span>
+                  <span className="text-base font-bold text-cyan-300/80">km/h</span>
+                </div>
+              </div>
             </div>
-	            
-	            {/* Weekly/monthly goals under the main metric block (steps for walk, distance for run) */}
-	            {isWalkMode ? walkGoalsSummary : runGoalsSummary}
 
-	            {/* Stats Grid (walk mode shows elapsed time instead of steps tile) */}
-	        <div className={`grid gap-2 ${isWalkMode ? 'grid-cols-2 sm:grid-cols-2 md:grid-cols-2' : 'grid-cols-2 sm:grid-cols-2 md:grid-cols-4'}`}>
-              {isWalkMode ? (
-                <>
-	                  <StatTile label={text.stats.distance} value={formatDistanceLabel(distanceM, 2)} accent={meta.accentColor} size="sm" />
-                  <StatTile
-                    label={language === 'ko' ? '경과 시간' : 'Elapsed'}
-                    value={elapsedClockWalk}
-	                    accent={meta.accentColor}
-	                    size="sm"
-                  />
-	                  <StatTile label={text.stats.avgSpeed} value={formatSpeedLabel(avgPaceMs)} accent={meta.accentColor} size="sm" />
-                  <StatTile
-                    label={text.summary?.calories || (language === 'ko' ? '칼로리' : 'Calories')}
-                    value={Number.isFinite(caloriesLive) ? `${caloriesLive.toFixed(0)} kcal` : '--'}
-	                    accent={meta.accentColor}
-	                    size="sm"
-                  />
-                </>
-              ) : (
-                <>
-                  <StatTile label={text.stats.distance} value={formatDistanceLabel(distanceM, 2)} accent={meta.accentColor} />
-                  <StatTile label={text.stats.current} value={currentPaceMs ? formatPaceLabel(currentPaceMs) : '--:-- /km'} accent={meta.accentColor} />
-                  <StatTile label={text.stats.average} value={avgPaceMs ? formatPaceLabel(avgPaceMs) : '--:-- /km'} accent={meta.accentColor} />
-                  <StatTile label={text.stats.avgSpeed} value={formatSpeedLabel(avgPaceMs)} accent={meta.accentColor} />
-                </>
-              )}
+	            {/* Weekly/monthly goals */}
+	            {runGoalsSummary}
+
+	            {/* Stats Grid */}
+	        <div className="grid gap-2 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
+              <StatTile label={text.stats.distance} value={formatDistanceLabel(distanceM, 2)} accent={meta.accentColor} />
+              <StatTile label={text.stats.current} value={currentPaceMs ? formatPaceLabel(currentPaceMs) : '--:-- /km'} accent={meta.accentColor} />
+              <StatTile label={text.stats.average} value={avgPaceMs ? formatPaceLabel(avgPaceMs) : '--:-- /km'} accent={meta.accentColor} />
+              <StatTile label={text.stats.avgSpeed} value={formatSpeedLabel(avgPaceMs)} accent={meta.accentColor} />
             </div>
           </section>
 
           {/* Lap Progress and Control Buttons - with custom spacing */}
           <div className="space-y-4">
             {/* Lap Progress */}
-            {!isWalkMode && (
-              <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-black/20 p-3 backdrop-blur-sm">
-                <div className="flex items-center justify-between text-sm mb-2">
-                  <span className="font-semibold text-white/90">{text.laps.next}</span>
-                  <span className="font-bold text-emerald-300">{formatDistanceLabel(nextLapMeters, 2)}</span>
-                </div>
-                <div className="relative h-2.5 overflow-hidden rounded-full bg-white/10">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 transition-all duration-300 relative"
-                    style={{ width: `${Math.min(100, Math.max(0, ((lapDistanceM - nextLapMeters) / lapDistanceM) * 100))}%` }}
-                  >
-                    <div className="absolute inset-0 bg-white/30 animate-shimmer"></div>
-                  </div>
+            <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-black/20 p-3 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-sm mb-2">
+                <span className="font-semibold text-white/90">{text.laps.next}</span>
+                <span className="font-bold text-emerald-300">{formatDistanceLabel(nextLapMeters, 2)}</span>
+              </div>
+              <div className="relative h-2.5 overflow-hidden rounded-full bg-white/10">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 transition-all duration-300 relative"
+                  style={{ width: `${Math.min(100, Math.max(0, ((lapDistanceM - nextLapMeters) / lapDistanceM) * 100))}%` }}
+                >
+                  <div className="absolute inset-0 bg-white/30 animate-shimmer"></div>
                 </div>
               </div>
-            )}
+            </div>
 
 	            {/* Control Buttons */}
 	            <div className="flex items-center justify-center gap-5 mt-4">
-              {isWalkMode ? (
-                // Walk mode: 시작 / 일시정지 / 재개 버튼
-                (!sessionActive ? (
-                  <button
-                    onClick={handleStartSession}
-                    disabled={starting}
-                    aria-label={language === 'ko' ? '시작' : 'Start'}
-                    className="group relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-emerald-400/90 bg-gradient-to-br from-emerald-500/40 to-emerald-600/30 text-emerald-100 shadow-xl shadow-emerald-500/30 transition-all duration-200 active:scale-95 disabled:opacity-60"
-                  >
-                    <div className="absolute inset-0 rounded-full bg-emerald-400/25 blur-lg group-hover:bg-emerald-400/40 transition-all"></div>
-                    <span className="relative text-2xl">▶</span>
-                  </button>
-                ) : isPaused ? (
-                  // 일시정지 상태: 재개 버튼
-                  <button
-                    onClick={handleResume}
-                    aria-label={language === 'ko' ? '재개' : 'Resume'}
-                    className="group relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-emerald-400/90 bg-gradient-to-br from-emerald-500/40 to-emerald-600/30 text-emerald-100 shadow-xl shadow-emerald-500/30 transition-all duration-200 active:scale-95"
-                  >
-                    <div className="absolute inset-0 rounded-full bg-emerald-400/25 blur-lg group-hover:bg-emerald-400/40 transition-all"></div>
-                    <span className="relative text-2xl">▶</span>
-                  </button>
-                ) : (
-                  // 진행 중: 일시정지 버튼
-                  <button
-                    onClick={handleEndSession}
-                    aria-label={language === 'ko' ? '일시정지' : 'Pause'}
-                    className="group relative flex h-16 w-16 items-center justify-center rounded-full border-2 border-amber-400/90 bg-gradient-to-br from-amber-500/30 to-amber-600/20 text-amber-100 shadow-xl shadow-amber-500/30 transition-all duration-200 active:scale-95"
-                  >
-                    <div className="absolute inset-0 rounded-full bg-amber-400/20 blur-lg group-hover:bg-amber-400/40 transition-all"></div>
-                    <span className="relative text-2xl">⏸</span>
-                  </button>
-                ))
-              ) : (
-                <>
                   {isPaused ? (
                     <button
                       onClick={handleResume}
@@ -4564,56 +2799,11 @@ export default function RunningSession({ mode }) {
                       </span>
                     </div>
                   </button>
-                </>
-              )}
             </div>
           </div>
 
         </>
       ) : (
-        isWalkMode ? (
-          <div className="space-y-3" style={{ marginTop: capPlatform === 'ios' ? '-10px' : '0', paddingBottom: capPlatform === 'ios' ? '30px' : '0' }}>
-            <div className="rounded-3xl border border-white/15 bg-gradient-to-br from-white/10 to-white/5 text-white backdrop-blur-xl shadow-xl p-4">
-              {latestAccuracy ? (
-                <div className="flex justify-end mb-2">
-                  <span className="rounded-full bg-black/30 px-3 py-1 text-xs text-white/80">{`GPS ±${latestAccuracy}m`}</span>
-                </div>
-              ) : null}
-
-              <StepChart
-                tab={chartTab}
-                language={language}
-                timeline={stepTimeline}
-                history={history}
-	                currentSteps={Number.isFinite(walkCurrentSteps) ? walkCurrentSteps : 0}
-                onTabChange={setChartTab}
-              />
-
-	              <div className="mt-3 text-center">
-                <div className="text-5xl font-black tabular-nums">{Number.isFinite(uiStepCount) ? uiStepCount.toLocaleString() : '0'}</div>
-                <p className="text-sm text-white/70">{language === 'ko' ? '걸음 수' : 'Steps'}</p>
-              </div>
-
-		          {walkGoalsSummary}
-
-	              <div className="mt-3 grid grid-cols-2 gap-2">
-	                <StatTile label={text.stats.distance} value={formatDistanceLabel(distanceM, 2)} accent={meta.accentColor} size="sm" />
-	                <StatTile label={language === 'ko' ? '경과 시간' : 'Elapsed'} value={elapsedClock} accent={meta.accentColor} size="sm" />
-	              </div>
-
-              <div className="mt-4 flex justify-center">
-                <button
-                  onClick={handleStartSession}
-                  disabled={starting}
-                  className="group relative w-full flex-shrink-0 rounded-3xl bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 px-6 py-4 text-xl font-black text-black shadow-2xl transition-all duration-200 active:scale-95 disabled:opacity-60 hover:shadow-emerald-500/50 overflow-hidden"
-                >
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                  <span className="relative">{starting ? text.setup.preparing : startButtonLabel}</span>
-                </button>
-              </div>
-            </div>
-          </div>
-        ) : (
           <div className="rounded-3xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 text-white backdrop-blur-xl flex flex-col shadow-xl overflow-hidden" style={{ marginTop: capPlatform === 'ios' ? '-10px' : '0', paddingBottom: capPlatform === 'ios' ? '30px' : '0' }}>
             <div className="flex flex-col h-full overflow-y-auto overscroll-contain p-4 space-y-3">
               {/* Header */}
@@ -4930,7 +3120,6 @@ export default function RunningSession({ mode }) {
               </button>
             </div>
           </div>
-        )
       )}
 
       <RunningHistoryOverlay
@@ -4972,7 +3161,7 @@ export default function RunningSession({ mode }) {
       />
 
       <IOSBackButtonLocal
-        show={((!sessionActive || isWalkMode) && !showStats && !showHistory)}
+        show={(!sessionActive && !showStats && !showHistory)}
         onBack={undefined}
       />
 
@@ -5068,8 +3257,8 @@ export default function RunningSession({ mode }) {
                 </p>
                 <p>
                   {language === 'ko'
-                    ? '러닝 모드에서만 목표 페이스 대비 빠르거나 느릴 때 음성 코칭이 재생돼요. 도보 모드에서는 코칭 음성이 없습니다.'
-                    : 'Voice coaching for target pace plays only in running. Walking mode does not play pace coaching.'}
+                    ? '목표 페이스 대비 빠르거나 느릴 때 음성 코칭이 재생됩니다.'
+                    : 'Voice coaching plays when you are faster or slower than target pace.'}
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-white/5 p-3">
@@ -5194,329 +3383,3 @@ function StatTile({ label, value, accent = 'emerald', className = '', size = 'md
 	  )
 }
 
-function StepChart({ tab, language, timeline, history, currentSteps, onTabChange }) {
-  const today = useMemo(() => {
-    const d = new Date()
-    d.setHours(0, 0, 0, 0)
-    return d
-  }, [])
-
-  const dayData = useMemo(() => {
-    // 0-23h + terminal 24h placeholder to keep end spacing
-    const buckets = Array.from({ length: 25 }, (_, hour) => ({
-      label: hour === 24 ? '24' : `${hour}`,
-      hourStart: hour,
-      value: 0,
-    }))
-    const sorted = Array.isArray(timeline) ? [...timeline].sort((a, b) => a.ts - b.ts) : []
-    const todayKey = new Date(today).toDateString()
-
-    if (sorted.length) {
-      // 시간대별로 샘플을 그룹화
-      const hourGroups = {}
-      sorted.forEach((sample) => {
-        const steps = Number(sample.steps)
-        const tsRaw = Number(sample.ts)
-        const ts = tsRaw < 1e12 ? tsRaw * 1000 : tsRaw
-        if (!Number.isFinite(steps) || !Number.isFinite(ts)) return
-        const d = new Date(ts)
-        if (d.toDateString() !== todayKey) return
-        const hour = d.getHours()
-        if (!hourGroups[hour]) hourGroups[hour] = []
-        hourGroups[hour].push(steps)
-      })
-
-      // 각 시간대별 증가분 계산
-      let prevHourMax = 0
-      for (let hour = 0; hour <= 23; hour++) {
-        if (hourGroups[hour] && hourGroups[hour].length > 0) {
-          const maxInHour = Math.max(...hourGroups[hour])
-
-          // 이 시간대의 증가분 = 최대값 - 이전 시간대 최대값
-          let delta = 0
-          if (maxInHour >= prevHourMax) {
-            delta = maxInHour - prevHourMax
-          } else {
-            // 센서 리셋된 경우
-            delta = maxInHour
-          }
-
-          buckets[hour].value = delta
-          prevHourMax = maxInHour
-        }
-      }
-    }
-
-    const liveSteps = Number.isFinite(currentSteps) ? Math.max(0, currentSteps) : null
-    if (Number.isFinite(liveSteps) && sorted.length > 0) {
-      const now = new Date()
-      if (now.toDateString() === todayKey) {
-        const currentHour = Math.min(23, Math.max(0, now.getHours()))
-
-        // timeline의 마지막 걸음수 찾기
-        const lastTimelineSteps = Math.max(...sorted.map(s => Number(s.steps)).filter(n => Number.isFinite(n)))
-
-        // currentSteps가 timeline보다 크면 현재 시간대에 추가
-        if (liveSteps > lastTimelineSteps) {
-          const additionalSteps = liveSteps - lastTimelineSteps
-          buckets[currentHour].value += additionalSteps
-        }
-      }
-    }
-
-    return buckets
-  }, [currentSteps, timeline, today])
-
-  const weekData = useMemo(() => {
-    const buckets = []
-    const dateKey = (d) => {
-      const yy = d.getFullYear()
-      const mm = String(d.getMonth() + 1).padStart(2, '0')
-      const dd = String(d.getDate()).padStart(2, '0')
-      return `${yy}-${mm}-${dd}`
-    }
-    const labelFor = (d) => {
-      const month = d.getMonth() + 1
-      const day = d.getDate()
-      return language === 'ko' ? `${month}/${day}` : `${month}/${day}`
-    }
-    const map = {}
-    const addSteps = (d, steps) => {
-      if (!Number.isFinite(steps)) return
-      const key = dateKey(d)
-      const safe = Math.max(0, steps)
-      map[key] = Math.max(map[key] || 0, safe) // 같은 날짜 중복 기록은 최대값만 반영
-    }
-    const now = new Date()
-    for (let i = 6; i >= 0; i -= 1) {
-      const d = new Date(now)
-      d.setDate(d.getDate() - i)
-      d.setHours(0, 0, 0, 0)
-      buckets.push({ label: labelFor(d), value: 0, key: dateKey(d) })
-    }
-    const todaySteps = Number.isFinite(currentSteps) ? Math.max(0, currentSteps) : 0
-    const todayKey = dateKey(today)
-    addSteps(today, todaySteps)
-    if (Array.isArray(history)) {
-      history.forEach((entry) => {
-        if (entry.mode && entry.mode !== 'walk') return
-        const steps = Number(entry.steps)
-        if (!Number.isFinite(steps) || steps <= 0) return
-        const ts = entry.startedAt || entry.timestamp
-        const d = ts ? new Date(ts) : null
-        if (!d || Number.isNaN(d.getTime())) return
-        d.setHours(0, 0, 0, 0)
-        const key = dateKey(d)
-        // 오늘 날짜는 currentSteps로 이미 추가했으므로 스킵
-        if (key === todayKey) return
-        addSteps(d, steps)
-      })
-    }
-    return buckets.map((b) => ({ ...b, value: map[b.key] || 0 }))
-  }, [history, today, language, currentSteps])
-
-  const monthData = useMemo(() => {
-    const now = new Date()
-    const year = now.getFullYear()
-    const month = now.getMonth()
-    const monthNumber = month + 1
-    const daysInMonth = new Date(year, month + 1, 0).getDate()
-    const keyFor = (day) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
-    const labelFor = (day) => {
-      return `${day}`
-    }
-    const buckets = Array.from({ length: daysInMonth }, (_, idx) => ({
-      label: labelFor(idx + 1),
-      dayNum: idx + 1,
-      value: 0,
-      key: keyFor(idx + 1),
-    }))
-    const map = {}
-    const addSteps = (d, steps) => {
-      if (!Number.isFinite(steps)) return
-      const key = keyFor(d.getDate())
-      const safe = Math.max(0, steps)
-      map[key] = Math.max(map[key] || 0, safe) // 같은 날짜 중복 기록은 최대값만 반영
-    }
-    const todayDate = today.getDate()
-    const todayKey = keyFor(todayDate)
-    const todaySteps = Number.isFinite(currentSteps) ? Math.max(0, currentSteps) : 0
-    addSteps(today, todaySteps)
-    if (Array.isArray(history)) {
-      history.forEach((entry) => {
-        if (entry.mode && entry.mode !== 'walk') return
-        const steps = Number(entry.steps)
-        if (!Number.isFinite(steps) || steps <= 0) return
-        const ts = entry.startedAt || entry.timestamp
-        const d = ts ? new Date(ts) : null
-        if (!d || Number.isNaN(d.getTime())) return
-        if (d.getMonth() !== month || d.getFullYear() !== year) return
-        d.setHours(0, 0, 0, 0)
-        const key = keyFor(d.getDate())
-        // 오늘 날짜는 currentSteps로 이미 추가했으므로 스킵
-        if (key === todayKey) return
-        addSteps(d, steps)
-      })
-    }
-    return buckets.map((b) => ({ ...b, value: map[b.key] || 0 }))
-  }, [history, today, language, currentSteps])
-
-  const data = tab === 'week' ? weekData : tab === 'month' ? monthData : dayData
-  const nowHour = new Date().getHours()
-  const maxVal = data.reduce((mx, d) => {
-    const bucketStart = (d.hourStart ?? d.hour ?? 0)
-    const isFuture = tab === 'day' && bucketStart > nowHour
-    const val = isFuture ? 0 : (d.value || 0)
-    return Math.max(mx, val)
-  }, 1)
-
-  // 균등 간격 y축 생성: 2000 단위로, 최소 2000까지
-  const stepSize = 2000
-  const maxTick = Math.ceil(Math.max(maxVal, 2000) / stepSize) * stepSize
-  const yTicks = Array.from({ length: Math.floor(maxTick / stepSize) + 1 }, (_, i) => i * stepSize)
-  const scaleMax = maxTick
-  const totalSteps = data.reduce((sum, d) => {
-    const bucketStart = tab === 'day' ? (d.hourStart ?? d.hour ?? 0) : 0
-    if (tab === 'day' && bucketStart > nowHour) return sum
-    return sum + (d.value || 0)
-  }, 0)
-  const lastMonthDay = tab === 'month' ? (monthData?.length || 0) : 0
-
-  const columnGapPx = 1
-  const gridTemplateColumns = `repeat(${data.length}, minmax(8px, 1fr))`
-  const gridStyle = {
-    gridTemplateColumns,
-    columnGap: `${columnGapPx}px`,
-    paddingLeft: '0px',
-    paddingRight: tab === 'month' ? '0px' : '0px',
-  }
-  const axisTicks = data.map((item, idx) => {
-    const dayNum = Number(item.dayNum ?? item.label)
-    const hourVal = item.hourStart ?? item.hour ?? 0
-    const showLabel = tab === 'day'
-      ? (hourVal % 2 === 0 || hourVal === 24)
-      : tab !== 'month'
-        ? true
-        : (Number.isFinite(dayNum) && ((dayNum % 5 === 0 && dayNum + 5 <= lastMonthDay) || dayNum === lastMonthDay))
-    const showGuide = showLabel
-    const labelText = tab === 'day'
-      ? `${hourVal === 24 ? 24 : hourVal}`
-      : item.label
-    return { key: `${item.label}-${idx}`, label: labelText, showGuide, showLabel }
-  })
-
-  return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between text-xs text-white/70">
-        <div className="flex gap-2">
-          {[
-            { key: 'day', label: language === 'ko' ? '일' : 'Day' },
-            { key: 'week', label: language === 'ko' ? '주' : 'Week' },
-            { key: 'month', label: language === 'ko' ? '월' : 'Month' },
-          ].map((opt) => (
-            <button
-              key={opt.key}
-              type="button"
-              onClick={() => onTabChange?.(opt.key)}
-              className={`rounded-full px-3 py-1 font-bold transition-all ${
-                tab === opt.key
-                  ? 'bg-emerald-500/30 text-emerald-100 border border-emerald-400/50 text-[0.7rem]'
-                  : 'bg-white/10 text-white/70 border border-white/20 text-[0.7rem]'
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div className="flex gap-2">
-        {yTicks.length > 0 && (
-          <div className="relative text-[0.65rem] text-white/60 h-40 pr-1 flex flex-col justify-between" style={{ width: '45px' }}>
-            {yTicks.slice().reverse().map((t) => (
-              <span key={`label-${t}`} className="leading-none">
-                {t.toLocaleString()}
-              </span>
-            ))}
-          </div>
-        )}
-        <div className="flex-1" style={{ marginLeft: tab === 'month' ? '-8px' : '0px' }}>
-          <div className="relative h-40 w-full overflow-hidden">
-            {yTicks.length === 0 ? null : yTicks.map((t, idx) => {
-              // 균등 간격으로 그리드 라인 배치
-              const totalTicks = yTicks.length
-              const bottomPct = (idx / (totalTicks - 1)) * 100
-
-              return (
-                <div
-                  key={`grid-${t}`}
-                  className="absolute left-0 right-0 border-t border-white/10"
-                  style={{ bottom: `${bottomPct}%` }}
-                />
-              )
-            })}
-            <div
-              className="absolute inset-0 pointer-events-none grid"
-              style={gridStyle}
-            >
-              {axisTicks.map((tick) => (
-                <div key={`guide-${tick.key}`} className="relative">
-                  {tick.showGuide ? (
-                    <div className="absolute inset-y-0 left-1/2 -translate-x-1/2 border-l border-dashed border-white/15" />
-                  ) : null}
-                </div>
-              ))}
-            </div>
-            <div
-              className="absolute inset-0 grid items-end"
-              style={gridStyle}
-            >
-              {data.map((item, idx) => {
-                const bucketStart = (item.hourStart ?? item.hour ?? 0)
-                const isFuture = tab === 'day' && bucketStart > nowHour
-                const heightPct = isFuture ? 0 : (item.value / scaleMax) * 100
-                const showDot = !isFuture && item.value <= 0
-
-                // 픽셀로 직접 계산 (그래프 높이 160px 기준)
-                const heightPx = (heightPct / 100) * 160
-                const finalHeightPx = Math.max(6, heightPx)
-
-                return (
-                  <div key={`${item.label}-${idx}`} className="flex flex-col items-center justify-end">
-                    {isFuture ? null : showDot ? (
-                      <div className="h-[6px] w-[6px] rounded-full bg-white/50" />
-                    ) : (
-                      <div
-                        className="w-full rounded-t-md bg-gradient-to-t from-emerald-400/60 via-emerald-300/50 to-cyan-300/60 shadow-inner"
-                        style={{ height: `${finalHeightPx}px` }}
-                      />
-                    )}
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-          <div
-            className="mt-1 grid text-[0.65rem] text-white/70 tabular-nums"
-            style={{
-              ...gridStyle,
-              justifyItems: 'center'
-            }}
-          >
-            {axisTicks.map((tick) => (
-              <span
-                key={tick.key}
-                className="block text-center whitespace-nowrap"
-                style={{ visibility: tick.showLabel ? 'visible' : 'hidden' }}
-              >
-                {tick.showLabel ? tick.label : '\u00A0'}
-              </span>
-            ))}
-          </div>
-        </div>
-      </div>
-      {totalSteps === 0 && (
-        null
-      )}
-    </div>
-  )
-}
