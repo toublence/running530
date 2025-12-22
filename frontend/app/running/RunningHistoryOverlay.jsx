@@ -393,39 +393,39 @@ export default function RunningHistoryOverlay({
   return (
     <div className="fixed inset-0 z-40 bg-slate-950 flex flex-col">
 	    <div
-	        className="flex-1 flex flex-col px-3 min-h-0"
+	        className="flex-1 flex flex-col px-3 md:px-6 lg:px-8 min-h-0"
         style={{
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
         }}
 	        >
-	        <div className="mx-auto flex w-full max-w-xl flex-col flex-1 min-h-0">
+	        <div className="mx-auto flex w-full max-w-xl md:max-w-2xl lg:max-w-4xl flex-col flex-1 min-h-0">
           {/* Header - Fixed */}
-          <div className="mb-3 text-center flex-shrink-0">
-            <h3 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300">
+          <div className="mb-3 md:mb-4 lg:mb-5 text-center flex-shrink-0">
+            <h3 className="text-xl md:text-2xl lg:text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300">
               {headerTitle}
             </h3>
           </div>
 
 		          {mode === 'run' && runDistanceGoalSummary && (
-		            <div className="mb-2 flex-shrink-0 rounded-xl border border-emerald-400/25 bg-gradient-to-br from-emerald-500/10 via-sky-500/5 to-cyan-500/10 px-2 py-1.5">
-		              <div className="flex items-center justify-between gap-2">
-		                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-emerald-100">
+		            <div className="mb-2 md:mb-3 flex-shrink-0 rounded-xl md:rounded-2xl border border-emerald-400/25 bg-gradient-to-br from-emerald-500/10 via-sky-500/5 to-cyan-500/10 px-2 md:px-4 py-1.5 md:py-2.5">
+		              <div className="flex items-center justify-between gap-2 md:gap-4">
+		                <p className="text-[0.55rem] md:text-xs lg:text-sm font-semibold uppercase tracking-wider text-emerald-100">
 		                  {language === 'ko' ? '주간/월간' : 'Week/Month'}
 		                </p>
-		                <div className="flex gap-1.5 text-xs text-white/90">
-		                  <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1">
-		                    <p className="text-[0.5rem] uppercase tracking-wider text-emerald-100 font-semibold">
+		                <div className="flex gap-1.5 md:gap-3 text-xs text-white/90">
+		                  <div className="rounded-lg md:rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-2 md:px-4 py-1 md:py-2">
+		                    <p className="text-[0.5rem] md:text-xs uppercase tracking-wider text-emerald-100 font-semibold">
 		                      {language === 'ko' ? '주간' : 'Week'}
 		                    </p>
-		                    <p className="text-xs font-bold">
+		                    <p className="text-xs md:text-sm lg:text-base font-bold">
 		                      {`${(runDistanceGoalSummary.weekTotalM / 1000).toFixed(1)}/${runDistanceGoalSummary.weekTargetKm.toFixed(0)}km`}
 		                    </p>
 		                  </div>
-		                  <div className="rounded-lg border border-sky-400/40 bg-sky-500/10 px-2 py-1">
-		                    <p className="text-[0.5rem] uppercase tracking-wider text-sky-100 font-semibold">
+		                  <div className="rounded-lg md:rounded-xl border border-sky-400/40 bg-sky-500/10 px-2 md:px-4 py-1 md:py-2">
+		                    <p className="text-[0.5rem] md:text-xs uppercase tracking-wider text-sky-100 font-semibold">
 		                      {language === 'ko' ? '월간' : 'Month'}
 		                    </p>
-		                    <p className="text-xs font-bold">
+		                    <p className="text-xs md:text-sm lg:text-base font-bold">
 		                      {`${(runDistanceGoalSummary.monthTotalM / 1000).toFixed(1)}/${runDistanceGoalSummary.monthTargetKm.toFixed(0)}km`}
 		                    </p>
 		                  </div>
@@ -434,7 +434,7 @@ export default function RunningHistoryOverlay({
 		            </div>
 		          )}
 		          {/* Filter & Sort Buttons */}
-          <div className="mb-2 flex gap-1.5 flex-shrink-0">
+          <div className="mb-2 md:mb-3 flex gap-1.5 md:gap-2 lg:gap-3 flex-shrink-0">
             {[
               { key: 'week', labelEn: 'W', labelKo: '주' },
               { key: 'month', labelEn: 'M', labelKo: '월' },
@@ -444,7 +444,7 @@ export default function RunningHistoryOverlay({
                 key={filter.key}
                 type="button"
                 onClick={() => handleFilterChange(filter.key)}
-                className={`flex-1 rounded-lg border px-2 py-1 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
+                className={`flex-1 rounded-lg md:rounded-xl border px-2 md:px-4 py-1 md:py-2 lg:py-3 text-[0.65rem] md:text-sm lg:text-base font-bold transition-all duration-200 active:scale-95 ${
                   filterPeriod === filter.key
                     ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
                     : 'border-white/30 bg-white/5 text-white/70 hover:border-white/50'
@@ -462,7 +462,7 @@ export default function RunningHistoryOverlay({
                 key={sort.key}
                 type="button"
                 onClick={() => handleSortChange(sort.key)}
-                className={`flex-1 rounded-lg border px-2 py-1 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
+                className={`flex-1 rounded-lg md:rounded-xl border px-2 md:px-4 py-1 md:py-2 lg:py-3 text-[0.65rem] md:text-sm lg:text-base font-bold transition-all duration-200 active:scale-95 ${
                   sortBy === sort.key
                     ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-100'
                     : 'border-white/30 bg-white/5 text-white/70 hover:border-white/50'
@@ -474,23 +474,23 @@ export default function RunningHistoryOverlay({
           </div>
 
           {distanceBars?.bars?.length > 0 && (
-            <div className="mb-2 rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 px-2 py-1.5 backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-[0.55rem] font-bold uppercase tracking-wider text-emerald-100">
+            <div className="mb-2 md:mb-3 rounded-xl md:rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 px-2 md:px-4 py-1.5 md:py-3 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-1 md:mb-2">
+                <p className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-emerald-100">
                   {language === 'ko' ? '거리 추이' : 'Trend'}
                 </p>
                 {distanceSummary && (
                   <div className="text-right">
-                    <span className="text-sm font-black text-white">
+                    <span className="text-sm md:text-lg lg:text-xl font-black text-white">
                       {distanceSummary.latest.toFixed(1)} km
                     </span>
-                    <span className="text-[0.55rem] text-white/60 ml-1">
+                    <span className="text-[0.55rem] md:text-xs lg:text-sm text-white/60 ml-1">
                       {language === 'ko' ? `최고 ${distanceSummary.max.toFixed(1)}` : `Best ${distanceSummary.max.toFixed(1)}`}
                     </span>
                   </div>
                 )}
               </div>
-              <div className="relative h-24">
+              <div className="relative h-24 md:h-32 lg:h-40">
                 <svg
                   className="absolute inset-0 w-full h-full"
                   viewBox="0 0 100 100"
@@ -556,16 +556,16 @@ export default function RunningHistoryOverlay({
           )}
 
           {/* History List - Scrollable area */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 md:space-y-3 pb-2 md:pb-4 scrollbar-hide">
             {sortedList.length === 0 ? (
-              <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-8 text-center backdrop-blur-sm">
-                <p className="text-sm text-white/60">{text.history.empty}</p>
+              <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-8 md:p-12 text-center backdrop-blur-sm">
+                <p className="text-sm md:text-base lg:text-lg text-white/60">{text.history.empty}</p>
               </div>
             ) : (
               Object.entries(groupedEntries).map(([dateKey, dateEntries]) => (
-                <div key={dateKey} className="space-y-1.5">
+                <div key={dateKey} className="space-y-1.5 md:space-y-2">
                   {/* Date Header */}
-                  <p className="text-[0.6rem] font-bold text-white/50 uppercase tracking-wider px-1">
+                  <p className="text-[0.6rem] md:text-xs lg:text-sm font-bold text-white/50 uppercase tracking-wider px-1 md:px-2">
                     {dateKey}
                   </p>
 
@@ -629,17 +629,17 @@ export default function RunningHistoryOverlay({
                     return (
                       <div
                         key={entry.id}
-                        className="overflow-hidden rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 backdrop-blur-sm"
+                        className="overflow-hidden rounded-xl md:rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 backdrop-blur-sm"
                       >
                         <button
                           type="button"
                           onClick={() => handleToggle(entry.id)}
-                          className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/5 transition-colors"
+                          className="flex w-full items-center justify-between px-3 md:px-5 lg:px-6 py-2 md:py-4 lg:py-5 hover:bg-white/5 transition-colors"
                         >
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 md:gap-4">
                             <div className="text-left">
-                              <p className="text-sm font-bold text-white/90">{distanceLabel}</p>
-                              <p className="text-xs text-white/50">{timeLabel}</p>
+                              <p className="text-sm md:text-lg lg:text-xl font-bold text-white/90">{distanceLabel}</p>
+                              <p className="text-xs md:text-sm lg:text-base text-white/50">{timeLabel}</p>
                             </div>
                             {expanded && (
                               <button
@@ -648,14 +648,14 @@ export default function RunningHistoryOverlay({
                                   e.stopPropagation()
                                   handleDelete(entry.id)
                                 }}
-                                className="flex items-center gap-1 rounded-lg border border-rose-400/50 bg-gradient-to-br from-rose-500/20 to-rose-600/10 px-2 py-1 text-[0.65rem] font-bold text-rose-100 shadow-sm transition-all duration-200 hover:border-rose-400/80 hover:shadow-rose-500/30 active:scale-95"
+                                className="flex items-center gap-1 md:gap-2 rounded-lg md:rounded-xl border border-rose-400/50 bg-gradient-to-br from-rose-500/20 to-rose-600/10 px-2 md:px-3 lg:px-4 py-1 md:py-2 text-[0.65rem] md:text-sm lg:text-base font-bold text-rose-100 shadow-sm transition-all duration-200 hover:border-rose-400/80 hover:shadow-rose-500/30 active:scale-95"
                               >
-                                <Minus className="h-3 w-3" />
+                                <Minus className="h-3 w-3 md:h-4 md:w-4" />
                                 <span>{language === 'ko' ? '삭제' : 'Del'}</span>
                               </button>
                             )}
                           </div>
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-3 md:gap-4">
                             {expanded ? (
                               <button
                                 type="button"
@@ -663,96 +663,96 @@ export default function RunningHistoryOverlay({
                                   e.stopPropagation()
                                   if (onChallengeEntry) onChallengeEntry(entry)
                                 }}
-                                className="flex items-center gap-1 rounded-lg border border-cyan-400/50 bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 px-2 py-1 text-[0.65rem] font-bold text-cyan-50 shadow-sm transition-all duration-200 hover:border-cyan-400/80 hover:shadow-cyan-500/30 active:scale-95"
+                                className="flex items-center gap-1 md:gap-2 rounded-lg md:rounded-xl border border-cyan-400/50 bg-gradient-to-br from-cyan-500/20 to-cyan-600/10 px-2 md:px-3 lg:px-4 py-1 md:py-2 text-[0.65rem] md:text-sm lg:text-base font-bold text-cyan-50 shadow-sm transition-all duration-200 hover:border-cyan-400/80 hover:shadow-cyan-500/30 active:scale-95"
                               >
                                 <span>{text.ghost?.challengeButton || (language === 'ko' ? '도전' : 'Challenge')}</span>
                               </button>
                             ) : (
                               <div className="text-right">
-                                <p className="text-sm font-bold text-emerald-300">{durationLabel}</p>
-                                <p className="text-xs text-white/50">{paceLabel}</p>
+                                <p className="text-sm md:text-lg lg:text-xl font-bold text-emerald-300">{durationLabel}</p>
+                                <p className="text-xs md:text-sm lg:text-base text-white/50">{paceLabel}</p>
                                 {caloriesDisplay && (
-                                  <p className="text-[0.65rem] text-white/60">
+                                  <p className="text-[0.65rem] md:text-xs lg:text-sm text-white/60">
                                     {text.summary.calories || (language === 'ko' ? '칼로리' : 'Calories')}: {caloriesDisplay}
                                   </p>
                                 )}
                                 {hasSteps && (
-                                  <p className="text-[0.65rem] text-white/60">
+                                  <p className="text-[0.65rem] md:text-xs lg:text-sm text-white/60">
                                     {(text.summary?.steps) || (language === 'ko' ? '걸음수' : 'Steps')}: {stepsDisplay}
                                   </p>
                                 )}
                                 {ghostResult && (
-                                  <p className={`text-[0.65rem] font-bold ${ghostResult.success ? 'text-emerald-200' : 'text-amber-200'}`}>
+                                  <p className={`text-[0.65rem] md:text-xs lg:text-sm font-bold ${ghostResult.success ? 'text-emerald-200' : 'text-amber-200'}`}>
                                     {ghostOutcomeLabel}{ghostDiffLabel ? ` (${ghostDiffLabel})` : ''}
                                   </p>
                                 )}
                               </div>
                             )}
                             {expanded ? (
-                              <ChevronUp className="h-4 w-4 text-white/70" />
+                              <ChevronUp className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-white/70" />
                             ) : (
-                              <ChevronDown className="h-4 w-4 text-white/70" />
+                              <ChevronDown className="h-4 w-4 md:h-5 md:w-5 lg:h-6 lg:w-6 text-white/70" />
                             )}
                           </div>
                         </button>
 
                         {expanded && (
-                          <div className="space-y-1.5 border-t border-white/15 bg-black/20 px-2 py-2 text-sm">
+                          <div className="space-y-1.5 md:space-y-3 border-t border-white/15 bg-black/20 px-2 md:px-4 lg:px-5 py-2 md:py-4 text-sm md:text-base">
                             {/* Stats Grid - 2 columns */}
-                            <div className="grid grid-cols-2 gap-1.5">
+                            <div className="grid grid-cols-2 gap-1.5 md:gap-3">
                               {/* Row 1: Distance, Time */}
-                              <div className="rounded-lg bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 px-2 py-1.5 text-center border border-emerald-400/20">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.distance}</p>
-                                <p className="text-base font-black text-white">{distanceLabel}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-emerald-400/20">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{text.summary.distance}</p>
+                                <p className="text-base md:text-xl lg:text-2xl font-black text-white">{distanceLabel}</p>
                               </div>
-                              <div className="rounded-lg bg-gradient-to-br from-cyan-500/15 to-cyan-500/5 px-2 py-1.5 text-center border border-cyan-400/20">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.totalTime}</p>
-                                <p className="text-base font-black text-white">{durationLabel}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-cyan-500/15 to-cyan-500/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-cyan-400/20">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{text.summary.totalTime}</p>
+                                <p className="text-base md:text-xl lg:text-2xl font-black text-white">{durationLabel}</p>
                               </div>
                               {/* Row 2: Avg Pace, Calories */}
-                              <div className="rounded-lg bg-gradient-to-br from-blue-500/15 to-blue-500/5 px-2 py-1.5 text-center border border-blue-400/20">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.avgPace}</p>
-                                <p className="text-base font-black text-white">{paceLabel}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-blue-500/15 to-blue-500/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-blue-400/20">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{text.summary.avgPace}</p>
+                                <p className="text-base md:text-xl lg:text-2xl font-black text-white">{paceLabel}</p>
                               </div>
-                              <div className="rounded-lg bg-gradient-to-br from-amber-500/15 to-amber-500/5 px-2 py-1.5 text-center border border-amber-400/20">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '칼로리' : 'Calories'}</p>
-                                <p className="text-base font-black text-white">{caloriesDisplay || '--'}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-amber-500/15 to-amber-500/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-amber-400/20">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '칼로리' : 'Calories'}</p>
+                                <p className="text-base md:text-xl lg:text-2xl font-black text-white">{caloriesDisplay || '--'}</p>
                               </div>
                               {/* Row 3: Start Time, Lap Distance - bigger */}
-                              <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '시작 시간' : 'Start Time'}</p>
-                                <p className="text-sm font-bold text-white">{startedAtLabel ? new Date(entry.startedAt).toLocaleTimeString(language === 'ko' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '--'}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-white/10 to-white/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-white/15">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '시작 시간' : 'Start Time'}</p>
+                                <p className="text-sm md:text-lg lg:text-xl font-bold text-white">{startedAtLabel ? new Date(entry.startedAt).toLocaleTimeString(language === 'ko' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '--'}</p>
                               </div>
-                              <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
-                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 거리' : 'Lap Distance'}</p>
-                                <p className="text-sm font-bold text-white">{lapDistanceLabel}</p>
+                              <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-white/10 to-white/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-white/15">
+                                <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 거리' : 'Lap Distance'}</p>
+                                <p className="text-sm md:text-lg lg:text-xl font-bold text-white">{lapDistanceLabel}</p>
                               </div>
                               {/* Optional: Steps (walk mode) */}
                               {hasSteps && (
-                                <div className="rounded-lg bg-gradient-to-br from-purple-500/15 to-purple-500/5 px-2 py-1.5 text-center border border-purple-400/20">
-                                  <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '걸음수' : 'Steps'}</p>
-                                  <p className="text-base font-black text-white">{stepsLabel}</p>
+                                <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-purple-500/15 to-purple-500/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-purple-400/20">
+                                  <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '걸음수' : 'Steps'}</p>
+                                  <p className="text-base md:text-xl lg:text-2xl font-black text-white">{stepsLabel}</p>
                                 </div>
                               )}
                               {/* Optional: Laps count */}
                               {laps.length > 0 && (
-                                <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
-                                  <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 수' : 'Laps'}</p>
-                                  <p className="text-sm font-bold text-white">{laps.length}</p>
+                                <div className="rounded-lg md:rounded-xl bg-gradient-to-br from-white/10 to-white/5 px-2 md:px-4 py-1.5 md:py-3 text-center border border-white/15">
+                                  <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 수' : 'Laps'}</p>
+                                  <p className="text-sm md:text-lg lg:text-xl font-bold text-white">{laps.length}</p>
                                 </div>
                               )}
                             </div>
 
                             {/* Extra details - goal & ghost */}
                             {(goalLabel || ghostResult) && (
-                              <div className="flex flex-wrap gap-1 text-[0.6rem]">
+                              <div className="flex flex-wrap gap-1 md:gap-2 text-[0.6rem] md:text-xs lg:text-sm">
                                 {goalLabel && (
-                                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-emerald-100 font-semibold">
+                                  <span className="px-2 md:px-3 py-0.5 md:py-1 rounded-lg md:rounded-xl bg-emerald-500/15 border border-emerald-400/30 text-emerald-100 font-semibold">
                                     {goalLabel}
                                   </span>
                                 )}
                                 {ghostResult && (
-                                  <span className={`px-2 py-0.5 rounded-lg border font-semibold ${ghostResult.success ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100' : 'bg-amber-500/15 border-amber-400/30 text-amber-100'}`}>
+                                  <span className={`px-2 md:px-3 py-0.5 md:py-1 rounded-lg md:rounded-xl border font-semibold ${ghostResult.success ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100' : 'bg-amber-500/15 border-amber-400/30 text-amber-100'}`}>
                                     {ghostOutcomeLabel}{ghostDiffLabel ? ` ${ghostDiffLabel}` : ''}
                                   </span>
                                 )}
@@ -761,15 +761,15 @@ export default function RunningHistoryOverlay({
 
                             {/* Lap Details - compact */}
                             {laps.length > 0 && (
-                              <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1">
-                                <p className="text-[0.5rem] uppercase tracking-wider text-white/60 font-bold mb-1">
+                              <div className="rounded-lg md:rounded-xl border border-white/10 bg-black/20 px-2 md:px-4 py-1 md:py-2">
+                                <p className="text-[0.5rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/60 font-bold mb-1 md:mb-2">
                                   {text.summary.lapList}
                                 </p>
-                                <div className="max-h-20 space-y-0.5 overflow-y-auto text-[0.55rem] text-white/70">
+                                <div className="max-h-20 md:max-h-32 lg:max-h-40 space-y-0.5 md:space-y-1 overflow-y-auto text-[0.55rem] md:text-xs lg:text-sm text-white/70">
                                   {laps.map((lap) => (
                                     <div
                                       key={lap.index}
-                                      className="flex items-center justify-between gap-1 rounded bg-white/5 px-1.5 py-0.5"
+                                      className="flex items-center justify-between gap-1 md:gap-2 rounded md:rounded-lg bg-white/5 px-1.5 md:px-3 py-0.5 md:py-1.5"
                                     >
                                       <span className="font-bold text-white/80">{lap.index}</span>
                                       <span>{formatDistanceLabel(lap.distanceM, 2)}</span>
@@ -795,12 +795,12 @@ export default function RunningHistoryOverlay({
       {/* Confirmation Button - Fixed at bottom */}
       {onClose && (
         <div
-          className="flex-shrink-0 px-3 mx-auto w-full max-w-xl"
+          className="flex-shrink-0 px-3 md:px-6 mx-auto w-full max-w-xl md:max-w-2xl lg:max-w-4xl"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
         >
           <button
             onClick={onClose}
-            className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98]"
+            className="w-full rounded-xl md:rounded-2xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 md:py-5 lg:py-6 text-sm md:text-lg lg:text-xl font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98]"
           >
             {language === 'ko' ? '확인' : 'OK'}
           </button>

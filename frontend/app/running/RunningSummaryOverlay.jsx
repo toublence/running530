@@ -13,9 +13,9 @@ export default function RunningSummaryOverlay({
   extraContent = null,
   onClose,
 }) {
-  if (!isVisible || !stats) return null
-
   const [helpKey, setHelpKey] = useState(null)
+
+  if (!isVisible || !stats) return null
 
   const completedLabel = language === 'ko' ? '러닝 완료!' : 'Run Complete!'
   const hasRoute = Array.isArray(routePoints) && routePoints.length > 1
@@ -102,21 +102,21 @@ export default function RunningSummaryOverlay({
   return (
     <div className="fixed inset-0 z-40 bg-slate-950">
       <div
-        className="flex h-full flex-col px-3"
+        className="flex h-full flex-col px-3 md:px-6 lg:px-8"
         style={{
           paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
           paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
         }}
       >
-        <div className="mx-auto flex w-full max-w-xl h-full flex-col">
+        <div className="mx-auto flex w-full max-w-xl md:max-w-2xl lg:max-w-4xl h-full flex-col">
           {/* Content area - Scrollable */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 mb-3 scrollbar-hide">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 md:space-y-4 mb-3 md:mb-4 scrollbar-hide">
             {/* Route Preview */}
-            <div className="relative overflow-hidden rounded-xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 shadow-lg">
+            <div className="relative overflow-hidden rounded-xl md:rounded-2xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 shadow-lg">
               {hasRoute ? (
                 <RunningRoutePreview points={routePoints} />
               ) : (
-                <div className="flex h-28 items-center justify-center px-3 py-4 text-center text-[0.65rem] text-white/60">
+                <div className="flex h-28 md:h-40 lg:h-48 items-center justify-center px-3 py-4 text-center text-[0.65rem] md:text-sm lg:text-base text-white/60">
                   {language === 'ko'
                     ? '경로를 표시할 만큼 GPS 데이터가 충분하지 않습니다.'
                     : 'Not enough GPS points were recorded to draw the route.'}
@@ -125,7 +125,7 @@ export default function RunningSummaryOverlay({
             </div>
 
             {/* Stats Grid with enhanced design */}
-            <div className="grid grid-cols-2 gap-1.5">
+            <div className="grid grid-cols-2 gap-1.5 md:gap-3 lg:gap-4">
               {summaryStats && Object.entries(summaryStats).map(([key, value]) => {
                 const isDistance = key.toLowerCase().includes('distance')
                 const isTime = key.toLowerCase().includes('time')
@@ -142,25 +142,25 @@ export default function RunningSummaryOverlay({
                 return (
                   <div
                     key={key}
-                    className={`rounded-xl border bg-gradient-to-br ${gradientClass} px-2 py-1.5 text-center backdrop-blur-sm`}
+                    className={`rounded-xl md:rounded-2xl border bg-gradient-to-br ${gradientClass} px-2 md:px-4 lg:px-5 py-1.5 md:py-3 lg:py-4 text-center backdrop-blur-sm`}
                   >
-                    <div className="flex items-center justify-center gap-1 mb-0.5">
-                      <p className="text-[0.55rem] uppercase tracking-wider text-white/70 font-bold">
+                    <div className="flex items-center justify-center gap-1 mb-0.5 md:mb-1">
+                      <p className="text-[0.55rem] md:text-xs lg:text-sm uppercase tracking-wider text-white/70 font-bold">
                         {value.label}
                       </p>
                       {helpTexts[language]?.[key] && (
                         <button
                           type="button"
                           onClick={() => setHelpKey((prev) => (prev === key ? null : key))}
-                          className="h-3.5 w-3.5 rounded-full border border-white/30 text-[0.5rem] font-black text-white/80 leading-none flex items-center justify-center bg-white/10"
+                          className="h-3.5 w-3.5 md:h-5 md:w-5 rounded-full border border-white/30 text-[0.5rem] md:text-xs font-black text-white/80 leading-none flex items-center justify-center bg-white/10"
                         >
                           ?
                         </button>
                       )}
                     </div>
-                    <p className="text-base font-black text-white">{value.value}</p>
+                    <p className="text-base md:text-xl lg:text-2xl font-black text-white">{value.value}</p>
                     {helpKey === key && helpTexts[language]?.[key] && (
-                      <div className="mt-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[0.55rem] text-white/80">
+                      <div className="mt-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[0.55rem] md:text-xs text-white/80">
                         {helpTexts[language][key]}
                       </div>
                     )}
@@ -169,46 +169,46 @@ export default function RunningSummaryOverlay({
               })}
             </div>
 
-	            {/* Weekly / Monthly running distance goals context (run mode only) */}
-	            {meta?.mode === 'run' && (Number.isFinite(meta.runWeeklyTotalDistanceM) || Number.isFinite(meta.runMonthlyTotalDistanceM)) && (
-	              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-2 py-1.5 text-sm text-white/90">
-	                <p className="text-[0.55rem] uppercase tracking-wider text-emerald-200 font-bold mb-1">
-	                  {language === 'ko' ? '주간/월간 런닝 목표' : 'Weekly / Monthly running goals'}
-	                </p>
-	                <div className="grid grid-cols-2 gap-1.5">
-	                  {Number.isFinite(meta.runWeeklyTotalDistanceM) && Number.isFinite(meta.runWeeklyTargetKm) && (
-	                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1">
-	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-emerald-100 font-semibold">
-	                        {language === 'ko' ? '이번 주' : 'This week'}
-	                      </p>
-	                      <p className="mt-1 text-sm font-bold">
-	                        {`${(meta.runWeeklyTotalDistanceM / 1000).toFixed(1)} / ${meta.runWeeklyTargetKm.toFixed(0)} km`}
-	                      </p>
-	                      {Number.isFinite(meta.runWeeklyGoalProgress) && (
-	                        <p className="text-[0.7rem] text-emerald-100/80">
-	                          {`${Math.max(0, Math.round(meta.runWeeklyGoalProgress))}%`}
-	                        </p>
-	                      )}
-	                    </div>
-	                  )}
-	                  {Number.isFinite(meta.runMonthlyTotalDistanceM) && Number.isFinite(meta.runMonthlyTargetKm) && (
-	                    <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 py-1">
-	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-sky-100 font-semibold">
-	                        {language === 'ko' ? '이번 달' : 'This month'}
-	                      </p>
-	                      <p className="mt-1 text-sm font-bold">
-	                        {`${(meta.runMonthlyTotalDistanceM / 1000).toFixed(1)} / ${meta.runMonthlyTargetKm.toFixed(0)} km`}
-	                      </p>
-	                      {Number.isFinite(meta.runMonthlyGoalProgress) && (
-	                        <p className="text-[0.7rem] text-sky-100/80">
-	                          {`${Math.max(0, Math.round(meta.runMonthlyGoalProgress))}%`}
-	                        </p>
-	                      )}
-	                    </div>
-	                  )}
-	                </div>
-	              </div>
-	            )}
+            {/* Weekly / Monthly running distance goals context (run mode only) */}
+            {meta?.mode === 'run' && (Number.isFinite(meta.runWeeklyTotalDistanceM) || Number.isFinite(meta.runMonthlyTotalDistanceM)) && (
+              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-2 py-1.5 text-sm text-white/90">
+                <p className="text-[0.55rem] uppercase tracking-wider text-emerald-200 font-bold mb-1">
+                  {language === 'ko' ? '주간/월간 런닝 목표' : 'Weekly / Monthly running goals'}
+                </p>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {Number.isFinite(meta.runWeeklyTotalDistanceM) && Number.isFinite(meta.runWeeklyTargetKm) && (
+                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1">
+                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-emerald-100 font-semibold">
+                        {language === 'ko' ? '이번 주' : 'This week'}
+                      </p>
+                      <p className="mt-1 text-sm font-bold">
+                        {`${(meta.runWeeklyTotalDistanceM / 1000).toFixed(1)} / ${meta.runWeeklyTargetKm.toFixed(0)} km`}
+                      </p>
+                      {Number.isFinite(meta.runWeeklyGoalProgress) && (
+                        <p className="text-[0.7rem] text-emerald-100/80">
+                          {`${Math.max(0, Math.round(meta.runWeeklyGoalProgress))}%`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  {Number.isFinite(meta.runMonthlyTotalDistanceM) && Number.isFinite(meta.runMonthlyTargetKm) && (
+                    <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 py-1">
+                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-sky-100 font-semibold">
+                        {language === 'ko' ? '이번 달' : 'This month'}
+                      </p>
+                      <p className="mt-1 text-sm font-bold">
+                        {`${(meta.runMonthlyTotalDistanceM / 1000).toFixed(1)} / ${meta.runMonthlyTargetKm.toFixed(0)} km`}
+                      </p>
+                      {Number.isFinite(meta.runMonthlyGoalProgress) && (
+                        <p className="text-[0.7rem] text-sky-100/80">
+                          {`${Math.max(0, Math.round(meta.runMonthlyGoalProgress))}%`}
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Meta details */}
             {meta && (
@@ -223,15 +223,17 @@ export default function RunningSummaryOverlay({
             )}
           </div>
 
-          {/* Confirmation Button - Fixed at bottom, never scrolls */}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98] flex-shrink-0"
-            >
-              {language === 'ko' ? '확인' : 'OK'}
-            </button>
-          )}
+          {/* Buttons - Fixed at bottom, never scrolls */}
+          <div className="flex flex-col gap-2 md:gap-4 flex-shrink-0">
+            {onClose && (
+              <button
+                onClick={onClose}
+                className="w-full rounded-xl md:rounded-2xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 md:py-5 lg:py-6 text-sm md:text-lg lg:text-xl font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98]"
+              >
+                {language === 'ko' ? '확인' : 'OK'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

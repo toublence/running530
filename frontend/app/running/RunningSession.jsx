@@ -101,13 +101,13 @@ const requestDeviceMotionPermission = async () => {
 }
 
 const BANNER_AD_UNITS = {
-  android: 'ca-app-pub-6169297934919363/4340478603',
-  ios: 'ca-app-pub-6169297934919363/2916993322',
+  android: '',
+  ios: '',
 }
 
 const INTERSTITIAL_AD_UNITS = {
-  android: 'ca-app-pub-6169297934919363/6708480786',
-  ios: 'ca-app-pub-6169297934919363/3994687532',
+  android: '',
+  ios: '',
 }
 
 const BANNER_HEIGHT_PX = 50
@@ -2648,57 +2648,57 @@ export default function RunningSession({ mode }) {
           )}
 
           {/* Main Timer Display - 중앙 대형 타이머 */}
-          <section className={`${runningSectionMarginClass} rounded-3xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 p-5 text-white shadow-2xl backdrop-blur-xl transition-all duration-300`}>
+          <section className={`${runningSectionMarginClass} rounded-3xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 p-5 md:p-8 lg:p-10 text-white shadow-2xl backdrop-blur-xl transition-all duration-300`}>
             <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400/20 via-blue-500/20 to-cyan-500/20 blur-xl -z-10"></div>
 
             {/* GPS Accuracy Badge */}
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 md:mb-5">
               <div className="flex-1">
-                <h3 className="text-base font-black tracking-tight text-white/90">{modeTitle}</h3>
+                <h3 className="text-base md:text-xl lg:text-2xl font-black tracking-tight text-white/90">{modeTitle}</h3>
               </div>
               <div className="flex-1 flex justify-end">
                 {latestAccuracy ? (
-                  <div className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 py-1 backdrop-blur-sm">
-                    <span className="text-xs font-medium text-white/80">{`GPS ±${latestAccuracy}m`}</span>
+                  <div className="flex items-center gap-1.5 rounded-full bg-black/30 px-3 md:px-4 py-1 md:py-2 backdrop-blur-sm">
+                    <span className="text-xs md:text-sm lg:text-base font-medium text-white/80">{`GPS ±${latestAccuracy}m`}</span>
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className="mb-3 flex flex-wrap gap-2">
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[0.7rem] font-semibold text-white/80">
+            <div className="mb-3 md:mb-5 flex flex-wrap gap-2 md:gap-3">
+                <span className="rounded-full bg-white/10 px-3 md:px-4 py-1 md:py-2 text-[0.7rem] md:text-sm lg:text-base font-semibold text-white/80">
                   {text.setup.timeCue}: {timeCueLabel}
                 </span>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-[0.7rem] font-semibold text-white/80">
+                <span className="rounded-full bg-white/10 px-3 md:px-4 py-1 md:py-2 text-[0.7rem] md:text-sm lg:text-base font-semibold text-white/80">
                   {text.setup.paceGuide}: {paceGuideLabel}
                 </span>
                 {ghostEnabled && (
-                  <span className="rounded-full bg-cyan-500/20 px-3 py-1 text-[0.7rem] font-semibold text-cyan-50 border border-cyan-400/30">
+                  <span className="rounded-full bg-cyan-500/20 px-3 md:px-4 py-1 md:py-2 text-[0.7rem] md:text-sm lg:text-base font-semibold text-cyan-50 border border-cyan-400/30">
                     {text.ghost?.title || 'Ghost'}: {ghostTargetText || (text.ghost?.subtitle || '')}
                   </span>
                 )}
                 {goalPreset && (
-                  <span className="rounded-full bg-emerald-500/20 px-3 py-1 text-[0.7rem] font-semibold text-emerald-50">
+                  <span className="rounded-full bg-emerald-500/20 px-3 md:px-4 py-1 md:py-2 text-[0.7rem] md:text-sm lg:text-base font-semibold text-emerald-50">
                     {text.goal.title}: {goalLabel}
                   </span>
                 )}
             </div>
 
             {/* Main Timer */}
-            <div className="text-center mb-3">
-              <div className="text-6xl font-black tracking-tighter text-white tabular-nums">
+            <div className="text-center mb-3 md:mb-6">
+              <div className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-white tabular-nums">
                 {elapsedClockRun}
               </div>
               {/* Current Speed Display - 타이머 바로 아래 */}
-              <div className="mt-2">
-                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-cyan-300/70 font-bold mb-1">
+              <div className="mt-2 md:mt-4">
+                <p className="text-[0.65rem] md:text-sm lg:text-base uppercase tracking-[0.2em] text-cyan-300/70 font-bold mb-1">
                   {text.stats.currentSpeed}
                 </p>
                 <div className="flex items-baseline justify-center gap-2">
-                  <span className={`text-3xl font-black text-cyan-100 tabular-nums transition-all duration-300 ${!isPaused ? 'animate-pulse' : ''}`}>
+                  <span className={`text-3xl md:text-5xl lg:text-6xl font-black text-cyan-100 tabular-nums transition-all duration-300 ${!isPaused ? 'animate-pulse' : ''}`}>
                     {formatSpeedLabel(currentPaceMs).split(' ')[0]}
                   </span>
-                  <span className="text-base font-bold text-cyan-300/80">km/h</span>
+                  <span className="text-base md:text-xl lg:text-2xl font-bold text-cyan-300/80">km/h</span>
                 </div>
               </div>
             </div>
@@ -2707,7 +2707,7 @@ export default function RunningSession({ mode }) {
 	            {runGoalsSummary}
 
 	            {/* Stats Grid */}
-	        <div className="grid gap-2 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
+	        <div className="grid gap-2 md:gap-4 lg:gap-5 grid-cols-2 sm:grid-cols-2 md:grid-cols-4">
               <StatTile label={text.stats.distance} value={formatDistanceLabel(distanceM, 2)} accent={meta.accentColor} />
               <StatTile label={text.stats.current} value={currentPaceMs ? formatPaceLabel(currentPaceMs) : '--:-- /km'} accent={meta.accentColor} />
               <StatTile label={text.stats.average} value={avgPaceMs ? formatPaceLabel(avgPaceMs) : '--:-- /km'} accent={meta.accentColor} />
@@ -2716,14 +2716,14 @@ export default function RunningSession({ mode }) {
           </section>
 
           {/* Lap Progress and Control Buttons - with custom spacing */}
-          <div className="space-y-4">
+          <div className="space-y-4 md:space-y-6">
             {/* Lap Progress */}
-            <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-black/20 p-3 backdrop-blur-sm">
-              <div className="flex items-center justify-between text-sm mb-2">
+            <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-black/20 p-3 md:p-5 lg:p-6 backdrop-blur-sm">
+              <div className="flex items-center justify-between text-sm md:text-lg lg:text-xl mb-2 md:mb-4">
                 <span className="font-semibold text-white/90">{text.laps.next}</span>
                 <span className="font-bold text-emerald-300">{formatDistanceLabel(nextLapMeters, 2)}</span>
               </div>
-              <div className="relative h-2.5 overflow-hidden rounded-full bg-white/10">
+              <div className="relative h-2.5 md:h-4 lg:h-5 overflow-hidden rounded-full bg-white/10">
                 <div
                   className="h-full rounded-full bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 transition-all duration-300 relative"
                   style={{ width: `${Math.min(100, Math.max(0, ((lapDistanceM - nextLapMeters) / lapDistanceM) * 100))}%` }}
@@ -2734,39 +2734,39 @@ export default function RunningSession({ mode }) {
             </div>
 
 	            {/* Control Buttons */}
-	            <div className="flex items-center justify-center gap-5 mt-4">
+	            <div className="flex items-center justify-center gap-5 md:gap-8 lg:gap-10 mt-4 md:mt-6">
                   {isPaused ? (
                     <button
                       onClick={handleResume}
-                      className="group relative flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-full border-2 border-emerald-400/90 bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 shadow-2xl shadow-emerald-500/30 transition-all duration-200 active:scale-95"
+                      className="group relative flex h-20 w-20 md:h-28 md:w-28 lg:h-32 lg:w-32 flex-col items-center justify-center gap-1 rounded-full border-2 border-emerald-400/90 bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 shadow-2xl shadow-emerald-500/30 transition-all duration-200 active:scale-95"
                     >
                       <div className="absolute inset-0 rounded-full bg-emerald-400/20 blur-lg group-hover:bg-emerald-400/40 transition-all"></div>
                       <div className="relative flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-3xl">▶</span>
-                        <span className="text-[0.55rem] font-bold uppercase tracking-wider text-emerald-100">{text.controls.resume}</span>
+                        <span className="text-3xl md:text-4xl lg:text-5xl">▶</span>
+                        <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-emerald-100">{text.controls.resume}</span>
                       </div>
                     </button>
                   ) : (
                     <button
                       onClick={handlePause}
-                      className="group relative flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-full border-2 border-white/50 bg-gradient-to-br from-white/10 to-black/30 text-white shadow-2xl shadow-black/40 transition-all duration-200 active:scale-95"
+                      className="group relative flex h-20 w-20 md:h-28 md:w-28 lg:h-32 lg:w-32 flex-col items-center justify-center gap-1 rounded-full border-2 border-white/50 bg-gradient-to-br from-white/10 to-black/30 text-white shadow-2xl shadow-black/40 transition-all duration-200 active:scale-95"
                     >
                       <div className="absolute inset-0 rounded-full bg-white/10 blur-lg group-hover:bg-white/20 transition-all"></div>
                       <div className="relative flex flex-col items-center justify-center gap-0.5">
-                        <span className="text-3xl">⏸</span>
-                        <span className="text-[0.55rem] font-bold uppercase tracking-wider text-white">{text.controls.pause}</span>
+                        <span className="text-3xl md:text-4xl lg:text-5xl">⏸</span>
+                        <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-white">{text.controls.pause}</span>
                       </div>
                     </button>
                   )}
 
                   <button
                     onClick={handleEndSession}
-                    className="group relative flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-full border-2 border-rose-400/90 bg-gradient-to-br from-rose-500/30 to-rose-600/20 text-rose-100 shadow-2xl shadow-rose-500/30 transition-all duration-200 active:scale-95"
+                    className="group relative flex h-20 w-20 md:h-28 md:w-28 lg:h-32 lg:w-32 flex-col items-center justify-center gap-1 rounded-full border-2 border-rose-400/90 bg-gradient-to-br from-rose-500/30 to-rose-600/20 text-rose-100 shadow-2xl shadow-rose-500/30 transition-all duration-200 active:scale-95"
                   >
                     <div className="absolute inset-0 rounded-full bg-rose-400/20 blur-lg group-hover:bg-rose-400/40 transition-all"></div>
                     <div className="relative flex flex-col items-center justify-center gap-0.5">
-                      <span className="text-3xl">■</span>
-                      <span className="text-[0.55rem] font-bold uppercase tracking-wider text-rose-100">{text.controls.end}</span>
+                      <span className="text-3xl md:text-4xl lg:text-5xl">■</span>
+                      <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-rose-100">{text.controls.end}</span>
                     </div>
                   </button>
 
@@ -2780,19 +2780,19 @@ export default function RunningSession({ mode }) {
                       setSessionKeepAwake(prev => !prev)
                     }}
                     disabled={!sessionActive}
-                    className="group relative flex h-20 w-20 flex-col items-center justify-center gap-1 rounded-full border-2 border-white/40 bg-gradient-to-br from-white/20 to-black/30 text-white shadow-xl backdrop-blur-sm transition-all duration-200 active:scale-95 hover:border-white/60 disabled:opacity-60"
+                    className="group relative flex h-20 w-20 md:h-28 md:w-28 lg:h-32 lg:w-32 flex-col items-center justify-center gap-1 rounded-full border-2 border-white/40 bg-gradient-to-br from-white/20 to-black/30 text-white shadow-xl backdrop-blur-sm transition-all duration-200 active:scale-95 hover:border-white/60 disabled:opacity-60"
                     style={{ zIndex: 70 }}
                   >
                     <div className="absolute inset-0 rounded-full bg-white/10 blur-lg group-hover:bg-white/20 transition-all"></div>
                     <div className="relative flex flex-col items-center justify-center gap-0.5">
                       {sessionKeepAwake ? (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M8.25 10V7.5a3.75 3.75 0 117.5 0V10" />
                           <rect x="6" y="10" width="12" height="10" rx="2" />
                           <circle cx="12" cy="15" r="1.5" fill="currentColor" />
                         </svg>
                       ) : (
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <svg className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M9 10V6.5a3 3 0 016 0" />
                           <path d="M9 6.5L6 4.5" strokeWidth="1.5" />
                           <path d="M7 4L5.5 3" strokeWidth="1.5" />
@@ -2800,7 +2800,7 @@ export default function RunningSession({ mode }) {
                           <circle cx="12" cy="15" r="1.5" fill="currentColor" />
                         </svg>
                       )}
-                      <span className="text-[0.55rem] font-bold uppercase tracking-wider text-white">
+                      <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-white">
                         {sessionKeepAwake ? (language === 'ko' ? '잠금' : 'Lock') : (language === 'ko' ? '해제' : 'Unlock')}
                       </span>
                     </div>
@@ -2811,30 +2811,30 @@ export default function RunningSession({ mode }) {
         </>
       ) : (
           <div className="rounded-3xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 text-white backdrop-blur-xl flex flex-col shadow-xl overflow-hidden" style={{ marginTop: capPlatform === 'ios' ? '-10px' : '0', paddingBottom: capPlatform === 'ios' ? '30px' : '0' }}>
-            <div className="flex flex-col h-full overflow-y-auto overscroll-contain p-4 space-y-3">
+            <div className="flex flex-col h-full overflow-y-auto overscroll-contain p-4 md:p-6 lg:p-8 space-y-3 md:space-y-5 lg:space-y-6">
               {/* Header */}
               <div className="text-center flex-shrink-0">
-                <h1 className="text-3xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300">
+                <h1 className="text-3xl md:text-5xl lg:text-6xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300">
                   {modeTitle}
                 </h1>
               </div>
 
               {/* Goal Selection */}
               <div className="flex-shrink-0">
-                <div className="mb-1 flex items-center gap-1">
-                  <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
+                <div className="mb-1 md:mb-2 flex items-center gap-1 md:gap-2">
+                  <p className="text-[0.65rem] md:text-sm lg:text-base font-bold text-white/70 uppercase tracking-wider">
                     {text.goal.title}
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowGoalGuide(true)}
                     aria-label={language === 'ko' ? '목표 안내' : 'Goal help'}
-                    className="flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
+                    className="flex h-4 w-4 md:h-6 md:w-6 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] md:text-xs text-white/80 hover:border-white/60 hover:text-white transition-colors"
                   >
                     ?
                   </button>
                 </div>
-                <div className="grid grid-cols-3 gap-1.5">
+                <div className="grid grid-cols-3 gap-1.5 md:gap-3">
                   <CustomDropdown
                     value={goalPreset?.type === 'distance' ? goalPreset.value : 0}
                     options={goalDistancePresets}
@@ -2864,7 +2864,7 @@ export default function RunningSession({ mode }) {
                   <button
                     type="button"
                     onClick={() => setGoalPreset(null)}
-                    className="flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-2 py-1.5 text-[0.65rem] font-bold text-white/70 hover:border-white/50 transition-colors"
+                    className="flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-2 md:px-4 py-1.5 md:py-2.5 text-[0.65rem] md:text-sm lg:text-base font-bold text-white/70 hover:border-white/50 transition-colors"
                   >
                     {text.goal.clear}
                   </button>
@@ -2873,19 +2873,19 @@ export default function RunningSession({ mode }) {
 
               {/* Ghost Mode */}
               <div className="flex-shrink-0">
-                <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-2 py-1.5">
-                  <div className="flex items-center gap-1.5 min-w-0">
-                    <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider flex-shrink-0">
+                <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-2 md:px-4 py-1.5 md:py-3">
+                  <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+                    <p className="text-[0.65rem] md:text-sm lg:text-base font-bold text-white/70 uppercase tracking-wider flex-shrink-0">
                       {text.ghost?.title || 'Ghost'}
                     </p>
-                    <p className="text-[0.6rem] text-white/50 truncate">
+                    <p className="text-[0.6rem] md:text-xs lg:text-sm text-white/50 truncate">
                       {ghostTargetText || (language === 'ko' ? '기록 도전' : 'Challenge')}
                     </p>
                   </div>
                   <button
                     type="button"
                     onClick={handleToggleGhost}
-                    className={`flex-shrink-0 rounded-lg px-2 py-1 text-[0.6rem] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`flex-shrink-0 rounded-lg px-2 md:px-4 py-1 md:py-2 text-[0.6rem] md:text-sm font-bold transition-all duration-200 active:scale-95 ${
                       ghostEnabled
                         ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/40'
                         : 'bg-white/10 text-white/80 border border-white/20 hover:border-white/40'
@@ -2903,20 +2903,20 @@ export default function RunningSession({ mode }) {
 
               {/* Settings Row */}
               <div className="flex-shrink-0">
-                <div className="mb-1 flex items-center gap-1">
-                  <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
+                <div className="mb-1 md:mb-2 flex items-center gap-1 md:gap-2">
+                  <p className="text-[0.65rem] md:text-sm lg:text-base font-bold text-white/70 uppercase tracking-wider">
                     {language === 'ko' ? '설정' : 'Settings'}
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowSettingsGuide(true)}
                     aria-label={language === 'ko' ? '설정 안내' : 'Settings help'}
-                    className="flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
+                    className="flex h-4 w-4 md:h-6 md:w-6 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] md:text-xs text-white/80 hover:border-white/60 hover:text-white transition-colors"
                   >
                     ?
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5">
+                <div className="grid grid-cols-2 gap-1.5 md:gap-3">
                   <CustomDropdown
                     value={lapDistanceM}
                     options={[
@@ -2968,7 +2968,7 @@ export default function RunningSession({ mode }) {
                   <button
                     type="button"
                     onClick={() => setVoiceEnabled((prev) => !prev)}
-                    className={`flex w-full items-center justify-center rounded-xl border px-1 py-1.5 text-[0.7rem] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-center rounded-xl border px-1 md:px-3 py-1.5 md:py-2.5 text-[0.7rem] md:text-sm lg:text-base font-bold transition-all duration-200 active:scale-95 ${
                       voiceEnabled
                         ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
                         : 'border-white/30 bg-white/10 text-white/70 hover:border-white/50'
@@ -2978,7 +2978,7 @@ export default function RunningSession({ mode }) {
                   </button>
                 </div>
 
-                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <div className="mt-1.5 md:mt-3 grid grid-cols-2 gap-1.5 md:gap-3">
                   <button
                     type="button"
                     onClick={() => {
@@ -2990,14 +2990,14 @@ export default function RunningSession({ mode }) {
                         return next
                       })
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl border px-2 py-1.5 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-between rounded-xl border px-2 md:px-4 py-1.5 md:py-2.5 text-[0.65rem] md:text-sm lg:text-base font-bold transition-all duration-200 active:scale-95 ${
                       preventScreenLock && !batterySaver
                         ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
                         : 'border-white/30 bg-white/10 text-white/80 hover:border-white/50'
                     }`}
                   >
                     <span className="truncate">{language === 'ko' ? '화면유지' : 'Screen'}</span>
-                    <span className="text-[0.6rem]">
+                    <span className="text-[0.6rem] md:text-xs lg:text-sm">
                       {preventScreenLock && !batterySaver ? (language === 'ko' ? '켜짐' : 'On') : (language === 'ko' ? '꺼짐' : 'Off')}
                     </span>
                   </button>
@@ -3013,14 +3013,14 @@ export default function RunningSession({ mode }) {
                         return next
                       })
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl border px-2 py-1.5 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-between rounded-xl border px-2 md:px-4 py-1.5 md:py-2.5 text-[0.65rem] md:text-sm lg:text-base font-bold transition-all duration-200 active:scale-95 ${
                       batterySaver
                         ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
                         : 'border-white/30 bg-white/10 text-white/80 hover:border-white/50'
                     }`}
                   >
                     <span className="truncate">{language === 'ko' ? '배터리절약' : 'Battery'}</span>
-                    <span className="text-[0.6rem]">
+                    <span className="text-[0.6rem] md:text-xs lg:text-sm">
                       {batterySaver ? (language === 'ko' ? '켜짐' : 'On') : (language === 'ko' ? '꺼짐' : 'Off')}
                     </span>
                   </button>
@@ -3030,11 +3030,11 @@ export default function RunningSession({ mode }) {
               {/* Recent Records Preview */}
               {modeHistory.length > 0 && (
                 <div className="flex-shrink-0">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
+                  <div className="flex items-center justify-between mb-1.5 md:mb-3">
+                    <p className="text-[0.65rem] md:text-sm lg:text-base font-bold text-white/70 uppercase tracking-wider">
                       {language === 'ko' ? '최근 기록' : 'Recent'}
                     </p>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 md:gap-4">
                       <button
                         type="button"
                         onClick={() => {
@@ -3042,20 +3042,20 @@ export default function RunningSession({ mode }) {
                           setLanguage(next)
                           localStorage.setItem('locale', next)
                         }}
-                        className="px-2 py-0.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] font-bold text-white/70 hover:border-white/50 transition-colors"
+                        className="px-2 md:px-4 py-0.5 md:py-1.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] md:text-sm font-bold text-white/70 hover:border-white/50 transition-colors"
                       >
                         {language === 'en' ? 'EN' : 'KO'}
                       </button>
                       <button
                         type="button"
                         onClick={() => handleOpenHistory({})}
-                        className="text-[0.65rem] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                        className="text-[0.65rem] md:text-sm lg:text-base font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
                       >
                         {language === 'ko' ? '전체보기 ›' : 'View All ›'}
                       </button>
                     </div>
                   </div>
-                  <div className="space-y-1.5">
+                  <div className="space-y-1.5 md:space-y-3">
                     {modeHistory.slice(0, 2).map((entry, idx) => {
                       const timestamp = entry.startedAt || entry.timestamp
                       const entryDate = timestamp ? new Date(timestamp) : null
@@ -3076,20 +3076,20 @@ export default function RunningSession({ mode }) {
                             setHistoryInitialSort('recent')
                             handleOpenHistory({ entryId })
                           }}
-                          className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 py-2 hover:border-white/20 transition-all duration-200"
+                          className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 md:px-5 py-2 md:py-4 hover:border-white/20 transition-all duration-200"
                         >
                           <div className="flex items-center justify-between">
                             <div>
-                              <p className="text-sm font-bold text-white/90">
+                              <p className="text-sm md:text-lg lg:text-xl font-bold text-white/90">
                                 {formatDistanceLabel(entry.distanceM)}
                               </p>
-                              <p className="text-[0.6rem] text-white/50">{dateStr}</p>
+                              <p className="text-[0.6rem] md:text-xs lg:text-sm text-white/50">{dateStr}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-xs font-bold text-emerald-300">
+                              <p className="text-xs md:text-base lg:text-lg font-bold text-emerald-300">
                                 {formatClock(entry.durationMs)}
                               </p>
-                              <p className="text-[0.6rem] text-white/50">
+                              <p className="text-[0.6rem] md:text-xs lg:text-sm text-white/50">
                                 {formatPaceLabel(entry.avgPaceMs)}
                               </p>
                             </div>
@@ -3111,7 +3111,7 @@ export default function RunningSession({ mode }) {
                       setLanguage(next)
                       localStorage.setItem('locale', next)
                     }}
-                    className="px-2 py-0.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] font-bold text-white/70 hover:border-white/50 transition-colors"
+                    className="px-2 md:px-4 py-0.5 md:py-1.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] md:text-sm font-bold text-white/70 hover:border-white/50 transition-colors"
                   >
                     {language === 'en' ? 'EN' : 'KO'}
                   </button>
@@ -3122,7 +3122,7 @@ export default function RunningSession({ mode }) {
               <button
                 onClick={handleStartSession}
                 disabled={starting}
-                className="group relative w-full flex-shrink-0 rounded-3xl bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 px-6 py-4 text-xl font-black text-black shadow-2xl transition-all duration-200 active:scale-95 disabled:opacity-60 hover:shadow-emerald-500/50 overflow-hidden"
+                className="group relative w-full flex-shrink-0 rounded-3xl bg-gradient-to-r from-emerald-400 via-blue-500 to-cyan-400 px-6 md:px-10 py-4 md:py-6 lg:py-8 text-xl md:text-2xl lg:text-3xl font-black text-black shadow-2xl transition-all duration-200 active:scale-95 disabled:opacity-60 hover:shadow-emerald-500/50 overflow-hidden"
               >
                 <div className="absolute inset-0 bg-gradient-to-r from-white/20 via-transparent to-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                 <span className="relative">{starting ? text.setup.preparing : startButtonLabel}</span>
@@ -3315,10 +3315,10 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full rounded-xl border border-white/30 bg-white/10 px-2 py-1.5 text-[0.7rem] font-semibold text-white hover:border-white/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-between"
+        className="w-full rounded-xl border border-white/30 bg-white/10 px-2 md:px-4 py-1.5 md:py-2.5 text-[0.7rem] md:text-sm lg:text-base font-semibold text-white hover:border-white/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-between"
       >
         <span className="truncate">{selectedOption?.label || label}</span>
-        <span className={`text-white/60 text-[0.6rem] ml-1 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <span className={`text-white/60 text-[0.6rem] md:text-xs ml-1 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
       {open && (
@@ -3332,9 +3332,9 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
           {/* Dropdown menu - fixed position to prevent layout shift */}
           <div
             ref={menuRef}
-            className="fixed left-4 right-4 bottom-1/3 rounded-xl border border-white/30 bg-slate-900/98 backdrop-blur-xl shadow-2xl z-50 max-h-48 overflow-y-auto"
+            className="fixed left-4 right-4 md:left-1/4 md:right-1/4 bottom-1/3 rounded-xl border border-white/30 bg-slate-900/98 backdrop-blur-xl shadow-2xl z-50 max-h-48 md:max-h-64 overflow-y-auto"
           >
-            <div className="px-2 py-1.5 text-[0.65rem] font-bold text-white/50 uppercase tracking-wider border-b border-white/10">
+            <div className="px-2 md:px-4 py-1.5 md:py-3 text-[0.65rem] md:text-sm font-bold text-white/50 uppercase tracking-wider border-b border-white/10">
               {label}
             </div>
             {options.map((option) => (
@@ -3346,7 +3346,7 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className={`w-full px-2 py-2 text-[0.7rem] font-semibold text-left transition-all duration-150 ${
+                className={`w-full px-2 md:px-4 py-2 md:py-3 text-[0.7rem] md:text-sm lg:text-base font-semibold text-left transition-all duration-150 ${
                   value === option.value
                     ? 'bg-emerald-500/30 text-emerald-100'
                     : 'text-white/90 hover:bg-white/10'
@@ -3373,10 +3373,10 @@ function StatTile({ label, value, accent = 'emerald', className = '', size = 'md
 	  const numericValue = parts[0]
 	  const unit = parts.length > 1 ? parts.slice(1).join(' ') : ''
 
-	  const paddingClass = size === 'sm' ? 'p-3' : 'p-4'
-	  const valueTextClass = size === 'sm' ? 'text-xl' : 'text-2xl'
-	  const unitTextClass = size === 'sm' ? 'text-[0.6rem]' : 'text-[0.65rem]'
-	  const labelTextClass = size === 'sm' ? 'text-[0.55rem]' : 'text-[0.6rem]'
+	  const paddingClass = size === 'sm' ? 'p-3 md:p-5 lg:p-6' : 'p-4 md:p-6 lg:p-8'
+	  const valueTextClass = size === 'sm' ? 'text-xl md:text-3xl lg:text-4xl' : 'text-2xl md:text-4xl lg:text-5xl'
+	  const unitTextClass = size === 'sm' ? 'text-[0.6rem] md:text-sm lg:text-base' : 'text-[0.65rem] md:text-sm lg:text-base'
+	  const labelTextClass = size === 'sm' ? 'text-[0.55rem] md:text-xs lg:text-sm' : 'text-[0.6rem] md:text-xs lg:text-sm'
 
 	  return (
 	    <div
@@ -3386,7 +3386,7 @@ function StatTile({ label, value, accent = 'emerald', className = '', size = 'md
 	      {unit && (
 	        <p className={`${unitTextClass} font-bold text-white/70 mt-0.5`}>{unit}</p>
 	      )}
-	      <p className={`mt-2 ${labelTextClass} uppercase tracking-[0.25em] text-white/70 font-bold leading-tight`}>{label}</p>
+	      <p className={`mt-2 md:mt-3 lg:mt-4 ${labelTextClass} uppercase tracking-[0.25em] text-white/70 font-bold leading-tight`}>{label}</p>
 	    </div>
 	  )
 }
