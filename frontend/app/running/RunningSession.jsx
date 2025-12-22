@@ -41,6 +41,7 @@ const MODE_META = {
 }
 
 const HISTORY_KEY = 'running_history_v1'
+const CARRYOVER_STORAGE_KEY = 'running_carryover_v1'
 const LAP_DISTANCE_STORAGE_KEY = 'running_lap_distance_m'
 const TIME_CUE_STORAGE_KEY = 'running_time_cue_ms'
 const PACE_TARGET_STORAGE_KEY = 'running_target_pace_ms'
@@ -474,6 +475,8 @@ export default function RunningSession({ mode }) {
   const pauseStartRef = useRef(0)
   const pausedAccumulatedRef = useRef(0)
   const totalDistanceRef = useRef(0)
+  const distanceOffsetRef = useRef(0)
+  const elapsedOffsetRef = useRef(0)
   const lapTargetRef = useRef(lapDistanceM || 1000)
   const lapStartTimeRef = useRef(null)
   const lapStartDistanceRef = useRef(0)
@@ -977,10 +980,6 @@ export default function RunningSession({ mode }) {
   useEffect(() => {
     setCapPlatform(resolveCapacitorPlatform())
   }, [])
-
-  useEffect(() => {
-    setStrideLengthM(resolveStrideLengthMeters())
-  }, [resolvedMode])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -1896,7 +1895,10 @@ export default function RunningSession({ mode }) {
     setDistanceM(safeDistance)
 
     // 4. Elapsed time / average pace calculation
-    setElapsedMs(elapsedWithOffset)
+    setElapsedMs((prev) => {
+      if (!Number.isFinite(prev)) return elapsedWithOffset
+      return Math.max(prev, elapsedWithOffset)
+    })
 
     const avgPace = safeDistance >= MIN_AVG_PACE_DISTANCE_M && elapsedWithOffset > 0
       ? elapsedWithOffset / (safeDistance / 1000)
@@ -2200,8 +2202,18 @@ export default function RunningSession({ mode }) {
     lapPauseStartRef.current = 0
     pauseStartRef.current = 0
     setIsPaused(false)
+    const currentTotal = Number.isFinite(totalDistanceRef.current) ? totalDistanceRef.current : 0
+    samplesRef.current = [{ t: now, d: currentTotal }]
+    setCurrentPaceMs(null)
     lastPointRef.current = null
     smoothedSpeedRef.current = null // Reset speed smoothing after pause
+    if (distanceCalculatorRef.current) {
+      distanceCalculatorRef.current = new DistanceCalculator({
+        mode: 'run',
+        enableSmoothing: true,
+        initialDistance: currentTotal,
+      })
+    }
     paceCoachRef.current = { ts: 0, direction: null }
     lastActiveTsRef.current = now
     idleModeRef.current = false
@@ -3382,4 +3394,3 @@ function StatTile({ label, value, accent = 'emerald', className = '', size = 'md
 	    </div>
 	  )
 }
-
