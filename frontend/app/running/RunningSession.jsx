@@ -6,7 +6,6 @@ import RunningHistoryOverlay from './RunningHistoryOverlay'
 import LapCompletionAlert from './LapCompletionAlert'
 import useNativeAppVisibility from '../hooks/useNativeAppVisibility'
 import useSafeAreaTop from '../hooks/useSafeAreaTop'
-import IOSBackButtonLocal from '../components/IOSBackButtonLocal'
 import { ensureLocationPermission, watchLocation, getCurrentLocation } from '../utils/geolocation'
 import {
   haversineDistanceMeters,
@@ -3170,10 +3169,6 @@ export default function RunningSession({ mode }) {
         autoDismissMs={3000}
       />
 
-      <IOSBackButtonLocal
-        show={(!sessionActive && !showStats && !showHistory)}
-        onBack={undefined}
-      />
 
       {showGoalGuide && (
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center px-4">
