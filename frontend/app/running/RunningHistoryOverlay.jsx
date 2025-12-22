@@ -391,105 +391,81 @@ export default function RunningHistoryOverlay({
   if (!isVisible) return null
 
   return (
-    <div className="fixed inset-0 z-40 bg-slate-950">
+    <div className="fixed inset-0 z-40 bg-slate-950 flex flex-col">
 	    <div
-	        className="flex h-full flex-col px-4 overflow-y-auto"
+	        className="flex-1 flex flex-col px-3 min-h-0"
         style={{
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
         }}
 	        >
-	        <div className="mx-auto flex w-full max-w-xl flex-col">
+	        <div className="mx-auto flex w-full max-w-xl flex-col flex-1 min-h-0">
           {/* Header - Fixed */}
-          <div className="mb-6 text-center flex-shrink-0">
-            <h3 className="text-2xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300 mb-1">
+          <div className="mb-3 text-center flex-shrink-0">
+            <h3 className="text-xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 via-blue-300 to-cyan-300">
               {headerTitle}
             </h3>
-            <p className="text-sm text-white/60">
-              {language === 'ko' ? '러닝 기록을 확인하세요' : 'Review your running history'}
-            </p>
           </div>
 
 		          {mode === 'run' && runDistanceGoalSummary && (
-		            <div className="mb-4 flex-shrink-0 rounded-2xl border border-emerald-400/25 bg-gradient-to-br from-emerald-500/10 via-sky-500/5 to-cyan-500/10 p-3">
-		              <div className="flex items-center justify-between gap-3">
-		                <div>
-		                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-emerald-100">
-		                    {language === 'ko' ? '\uc8fc\uac04/\uc6d4\uac04 \ub7f0\ub2dd \ubaa9\ud45c' : 'Weekly / Monthly running goals'}
-		                  </p>
-		                  <p className="text-[0.7rem] text-white/70">
-		                    {language === 'ko'
-		                      ? '\ud788\uc2a4\ud1a0\ub9ac\uc5d0 \uc800\uc7a5\ub41c \ub7f0\ub2dd \ub0b4\uc5ed\uc758 \ud569\uacc4\uc785\ub2c8\ub2e4.'
-		                      : 'Totals across your saved running sessions.'}
-		                  </p>
-		                </div>
-		                <div className="grid grid-cols-2 gap-2 text-xs text-white/90">
-		                  <div className="rounded-xl border border-emerald-400/40 bg-emerald-500/10 px-3 py-2">
-		                    <p className="text-[0.6rem] uppercase tracking-[0.18em] text-emerald-100 font-semibold">
-		                      {language === 'ko' ? '\uc774\ubc88 \uc8fc' : 'This week'}
+		            <div className="mb-2 flex-shrink-0 rounded-xl border border-emerald-400/25 bg-gradient-to-br from-emerald-500/10 via-sky-500/5 to-cyan-500/10 px-2 py-1.5">
+		              <div className="flex items-center justify-between gap-2">
+		                <p className="text-[0.55rem] font-semibold uppercase tracking-wider text-emerald-100">
+		                  {language === 'ko' ? '주간/월간' : 'Week/Month'}
+		                </p>
+		                <div className="flex gap-1.5 text-xs text-white/90">
+		                  <div className="rounded-lg border border-emerald-400/40 bg-emerald-500/10 px-2 py-1">
+		                    <p className="text-[0.5rem] uppercase tracking-wider text-emerald-100 font-semibold">
+		                      {language === 'ko' ? '주간' : 'Week'}
 		                    </p>
-		                    <p className="mt-0.5 text-sm font-bold">
-		                      {`${(runDistanceGoalSummary.weekTotalM / 1000).toFixed(1)} / ${runDistanceGoalSummary.weekTargetKm.toFixed(0)} km`}
+		                    <p className="text-xs font-bold">
+		                      {`${(runDistanceGoalSummary.weekTotalM / 1000).toFixed(1)}/${runDistanceGoalSummary.weekTargetKm.toFixed(0)}km`}
 		                    </p>
-		                    {Number.isFinite(runDistanceGoalSummary.weekPct) && (
-		                      <p className="text-[0.65rem] text-emerald-100/80">
-		                        {`${Math.max(0, Math.round(runDistanceGoalSummary.weekPct))}%`}
-		                      </p>
-		                    )}
 		                  </div>
-		                  <div className="rounded-xl border border-sky-400/40 bg-sky-500/10 px-3 py-2">
-		                    <p className="text-[0.6rem] uppercase tracking-[0.18em] text-sky-100 font-semibold">
-		                      {language === 'ko' ? '\uc774\ubc88 \ub2ec' : 'This month'}
+		                  <div className="rounded-lg border border-sky-400/40 bg-sky-500/10 px-2 py-1">
+		                    <p className="text-[0.5rem] uppercase tracking-wider text-sky-100 font-semibold">
+		                      {language === 'ko' ? '월간' : 'Month'}
 		                    </p>
-		                    <p className="mt-0.5 text-sm font-bold">
-		                      {`${(runDistanceGoalSummary.monthTotalM / 1000).toFixed(1)} / ${runDistanceGoalSummary.monthTargetKm.toFixed(0)} km`}
+		                    <p className="text-xs font-bold">
+		                      {`${(runDistanceGoalSummary.monthTotalM / 1000).toFixed(1)}/${runDistanceGoalSummary.monthTargetKm.toFixed(0)}km`}
 		                    </p>
-		                    {Number.isFinite(runDistanceGoalSummary.monthPct) && (
-		                      <p className="text-[0.65rem] text-sky-100/80">
-		                        {`${Math.max(0, Math.round(runDistanceGoalSummary.monthPct))}%`}
-		                      </p>
-		                    )}
 		                  </div>
 		                </div>
 		              </div>
 		            </div>
 		          )}
-		          {/* Filter Buttons - Fixed */}
-          <div className="mb-3 flex gap-2 flex-shrink-0">
+		          {/* Filter & Sort Buttons */}
+          <div className="mb-2 flex gap-1.5 flex-shrink-0">
             {[
-              { key: 'week', labelEn: 'Week', labelKo: '주간' },
-              { key: 'month', labelEn: 'Month', labelKo: '월간' },
+              { key: 'week', labelEn: 'W', labelKo: '주' },
+              { key: 'month', labelEn: 'M', labelKo: '월' },
               { key: 'all', labelEn: 'All', labelKo: '전체' },
             ].map((filter) => (
               <button
                 key={filter.key}
                 type="button"
                 onClick={() => handleFilterChange(filter.key)}
-                className={`flex-1 rounded-2xl border-2 px-4 py-2.5 text-sm font-bold transition-all duration-200 active:scale-95 ${
+                className={`flex-1 rounded-lg border px-2 py-1 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
                   filterPeriod === filter.key
-                    ? 'border-emerald-400/70 bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 shadow-lg shadow-emerald-500/30'
-                    : 'border-white/30 bg-gradient-to-br from-white/5 to-black/10 text-white/70 hover:border-white/50'
+                    ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
+                    : 'border-white/30 bg-white/5 text-white/70 hover:border-white/50'
                 }`}
               >
                 {language === 'ko' ? filter.labelKo : filter.labelEn}
               </button>
             ))}
-          </div>
-
-          {/* Sort Buttons - Fixed */}
-          <div className="mb-4 flex justify-center gap-2 flex-shrink-0">
+            <div className="w-px bg-white/20" />
             {[
-              { key: 'recent', labelEn: 'Recent', labelKo: '최신순' },
-              { key: 'record', labelEn: 'Best Pace', labelKo: '기록순' },
+              { key: 'recent', labelEn: 'New', labelKo: '최신' },
+              { key: 'record', labelEn: 'Best', labelKo: '기록' },
             ].map((sort) => (
               <button
                 key={sort.key}
                 type="button"
                 onClick={() => handleSortChange(sort.key)}
-                className={`rounded-2xl border-2 px-4 py-2 text-xs font-bold transition-all duration-200 active:scale-95 ${
+                className={`flex-1 rounded-lg border px-2 py-1 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
                   sortBy === sort.key
-                    ? 'border-cyan-400/70 bg-gradient-to-br from-cyan-500/30 to-cyan-600/20 text-cyan-100 shadow-lg shadow-cyan-500/30'
-                    : 'border-white/30 bg-gradient-to-br from-white/5 to-black/10 text-white/70 hover:border-white/50'
+                    ? 'border-cyan-400/70 bg-cyan-500/20 text-cyan-100'
+                    : 'border-white/30 bg-white/5 text-white/70 hover:border-white/50'
                 }`}
               >
                 {language === 'ko' ? sort.labelKo : sort.labelEn}
@@ -498,39 +474,23 @@ export default function RunningHistoryOverlay({
           </div>
 
           {distanceBars?.bars?.length > 0 && (
-            <div className="mb-4 rounded-2xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 p-3 shadow-lg backdrop-blur-sm">
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs font-bold uppercase tracking-[0.2em] text-emerald-100">
-                    {language === 'ko' ? '거리 추이' : 'Distance Trend'}
-                  </p>
-                  <p className="text-[0.7rem] text-white/60">
-                    {language === 'ko'
-                      ? `최근 ${distanceSeries.length}회 기록`
-                      : `Last ${distanceSeries.length} sessions`}
-                  </p>
-                </div>
+            <div className="mb-2 rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 px-2 py-1.5 backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[0.55rem] font-bold uppercase tracking-wider text-emerald-100">
+                  {language === 'ko' ? '거리 추이' : 'Trend'}
+                </p>
                 {distanceSummary && (
                   <div className="text-right">
-                    <p className="text-lg font-black text-white">
-                      {distanceSummary.latest.toFixed(2)} km
-                    </p>
-                    <p className="text-[0.65rem] text-white/70">
-                      {language === 'ko'
-                        ? `최고 ${distanceSummary.max.toFixed(2)}km · 평균 ${distanceSummary.avg.toFixed(2)}km`
-                        : `Best ${distanceSummary.max.toFixed(2)} km · Avg ${distanceSummary.avg.toFixed(2)} km`}
-                    </p>
-                    {distanceSummary.delta != null && (
-                      <p className={`text-[0.65rem] font-bold ${distanceSummary.delta > 0 ? 'text-emerald-200' : distanceSummary.delta < 0 ? 'text-amber-200' : 'text-white/70'}`}>
-                        {language === 'ko'
-                          ? `직전 대비 ${distanceSummary.delta >= 0 ? '+' : ''}${distanceSummary.delta.toFixed(2)}km`
-                          : `vs last ${distanceSummary.delta >= 0 ? '+' : ''}${distanceSummary.delta.toFixed(2)} km`}
-                      </p>
-                    )}
+                    <span className="text-sm font-black text-white">
+                      {distanceSummary.latest.toFixed(1)} km
+                    </span>
+                    <span className="text-[0.55rem] text-white/60 ml-1">
+                      {language === 'ko' ? `최고 ${distanceSummary.max.toFixed(1)}` : `Best ${distanceSummary.max.toFixed(1)}`}
+                    </span>
                   </div>
                 )}
               </div>
-              <div className="relative h-36">
+              <div className="relative h-24">
                 <svg
                   className="absolute inset-0 w-full h-full"
                   viewBox="0 0 100 100"
@@ -595,17 +555,17 @@ export default function RunningHistoryOverlay({
             </div>
           )}
 
-          {/* History List - Scrollable area with flex-1 and min-h-0 to enable scroll */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mb-4 scrollbar-hide">
+          {/* History List - Scrollable area */}
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 pb-2 scrollbar-hide">
             {sortedList.length === 0 ? (
               <div className="rounded-3xl border border-white/10 bg-gradient-to-br from-white/5 to-white/10 p-8 text-center backdrop-blur-sm">
                 <p className="text-sm text-white/60">{text.history.empty}</p>
               </div>
             ) : (
               Object.entries(groupedEntries).map(([dateKey, dateEntries]) => (
-                <div key={dateKey} className="space-y-2">
+                <div key={dateKey} className="space-y-1.5">
                   {/* Date Header */}
-                  <p className="text-xs font-bold text-white/50 uppercase tracking-wider px-2">
+                  <p className="text-[0.6rem] font-bold text-white/50 uppercase tracking-wider px-1">
                     {dateKey}
                   </p>
 
@@ -669,12 +629,12 @@ export default function RunningHistoryOverlay({
                     return (
                       <div
                         key={entry.id}
-                        className="overflow-hidden rounded-2xl border-2 border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 shadow-lg backdrop-blur-sm"
+                        className="overflow-hidden rounded-xl border border-emerald-400/20 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 backdrop-blur-sm"
                       >
                         <button
                           type="button"
                           onClick={() => handleToggle(entry.id)}
-                          className="flex w-full items-center justify-between px-4 py-3.5 hover:bg-white/5 transition-colors"
+                          className="flex w-full items-center justify-between px-3 py-2 hover:bg-white/5 transition-colors"
                         >
                           <div className="flex items-center gap-3">
                             <div className="text-left">
@@ -737,192 +697,81 @@ export default function RunningHistoryOverlay({
                         </button>
 
                         {expanded && (
-                          <div className="space-y-3 border-t border-white/15 bg-black/20 px-4 py-4 text-sm">
-                            {/* Stats Grid */}
-                            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                              <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                  {renderLabel('distance', text.summary.distance)}
-                                </div>
-                                <p className="text-sm font-black text-white">{distanceLabel}</p>
-                                {helpKey === 'distance' && helpTexts[language]?.distance && (
-                                  <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].distance}</p>
-                                )}
+                          <div className="space-y-1.5 border-t border-white/15 bg-black/20 px-2 py-2 text-sm">
+                            {/* Stats Grid - 2 columns */}
+                            <div className="grid grid-cols-2 gap-1.5">
+                              {/* Row 1: Distance, Time */}
+                              <div className="rounded-lg bg-gradient-to-br from-emerald-500/15 to-emerald-500/5 px-2 py-1.5 text-center border border-emerald-400/20">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.distance}</p>
+                                <p className="text-base font-black text-white">{distanceLabel}</p>
                               </div>
-                              <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                  {renderLabel('totalTime', text.summary.totalTime)}
-                                </div>
-                                <p className="text-sm font-black text-white">{durationLabel}</p>
-                                {helpKey === 'totalTime' && helpTexts[language]?.totalTime && (
-                                  <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].totalTime}</p>
-                                )}
+                              <div className="rounded-lg bg-gradient-to-br from-cyan-500/15 to-cyan-500/5 px-2 py-1.5 text-center border border-cyan-400/20">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.totalTime}</p>
+                                <p className="text-base font-black text-white">{durationLabel}</p>
                               </div>
-                              <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                  {renderLabel('avgPace', text.summary.avgPace)}
-                                </div>
-                                <p className="text-sm font-black text-white">{paceLabel}</p>
-                                {helpKey === 'avgPace' && helpTexts[language]?.avgPace && (
-                                  <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].avgPace}</p>
-                                )}
+                              {/* Row 2: Avg Pace, Calories */}
+                              <div className="rounded-lg bg-gradient-to-br from-blue-500/15 to-blue-500/5 px-2 py-1.5 text-center border border-blue-400/20">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{text.summary.avgPace}</p>
+                                <p className="text-base font-black text-white">{paceLabel}</p>
                               </div>
-                              <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                  {renderLabel('laps', text.summary.laps)}
-                                </div>
-                                <p className="text-sm font-black text-white">{laps.length}</p>
-                                {helpKey === 'laps' && helpTexts[language]?.laps && (
-                                  <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].laps}</p>
-                                )}
+                              <div className="rounded-lg bg-gradient-to-br from-amber-500/15 to-amber-500/5 px-2 py-1.5 text-center border border-amber-400/20">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '칼로리' : 'Calories'}</p>
+                                <p className="text-base font-black text-white">{caloriesDisplay || '--'}</p>
                               </div>
+                              {/* Row 3: Start Time, Lap Distance - bigger */}
+                              <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '시작 시간' : 'Start Time'}</p>
+                                <p className="text-sm font-bold text-white">{startedAtLabel ? new Date(entry.startedAt).toLocaleTimeString(language === 'ko' ? 'ko-KR' : 'en-US', { hour: '2-digit', minute: '2-digit' }) : '--'}</p>
+                              </div>
+                              <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
+                                <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 거리' : 'Lap Distance'}</p>
+                                <p className="text-sm font-bold text-white">{lapDistanceLabel}</p>
+                              </div>
+                              {/* Optional: Steps (walk mode) */}
                               {hasSteps && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('steps', text.summary.steps || (language === 'ko' ? '걸음수' : 'Steps'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{stepsLabel}</p>
-                                  {helpKey === 'steps' && helpTexts[language]?.steps && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].steps}</p>
-                                  )}
+                                <div className="rounded-lg bg-gradient-to-br from-purple-500/15 to-purple-500/5 px-2 py-1.5 text-center border border-purple-400/20">
+                                  <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '걸음수' : 'Steps'}</p>
+                                  <p className="text-base font-black text-white">{stepsLabel}</p>
                                 </div>
                               )}
-                              {caloriesDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('calories', text.summary.calories || (language === 'ko' ? '칼로리' : 'Calories'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{caloriesDisplay}</p>
-                                  {helpKey === 'calories' && helpTexts[language]?.calories && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].calories}</p>
-                                  )}
-                                </div>
-                              )}
-                              {cadenceDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('cadence', text.summary.cadence || (language === 'ko' ? '케이던스' : 'Cadence'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{cadenceDisplay}</p>
-                                  {helpKey === 'cadence' && helpTexts[language]?.cadence && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].cadence}</p>
-                                  )}
-                                </div>
-                              )}
-                              {strideDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('stride', text.summary.stride || (language === 'ko' ? '스트라이드' : 'Stride'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{strideDisplay}</p>
-                                  {helpKey === 'stride' && helpTexts[language]?.stride && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].stride}</p>
-                                  )}
-                                </div>
-                              )}
-                              {elevationDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('elevation', text.summary.elevation || (language === 'ko' ? '고도 상승' : 'Elevation'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{elevationDisplay}</p>
-                                  {helpKey === 'elevation' && helpTexts[language]?.elevation && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].elevation}</p>
-                                  )}
-                                </div>
-                              )}
-                              {intensityDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('intensity', text.summary.intensity || (language === 'ko' ? '강도' : 'Intensity'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{intensityDisplay}</p>
-                                  {helpKey === 'intensity' && helpTexts[language]?.intensity && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].intensity}</p>
-                                  )}
-                                </div>
-                              )}
-                              {goalProgressDisplay && (
-                                <div className="rounded-xl bg-gradient-to-br from-white/10 to-white/5 p-3 text-center border border-white/10">
-                                  <div className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold flex items-center justify-center gap-1">
-                                    {renderLabel('goalProgress', text.summary.goalProgress || (language === 'ko' ? '목표 달성률' : 'Goal Progress'))}
-                                  </div>
-                                  <p className="text-sm font-black text-white">{goalProgressDisplay}</p>
-                                  {helpKey === 'goalProgress' && helpTexts[language]?.goalProgress && (
-                                    <p className="mt-1 text-[0.65rem] text-white/70">{helpTexts[language].goalProgress}</p>
-                                  )}
+                              {/* Optional: Laps count */}
+                              {laps.length > 0 && (
+                                <div className="rounded-lg bg-gradient-to-br from-white/10 to-white/5 px-2 py-1.5 text-center border border-white/15">
+                                  <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">{language === 'ko' ? '랩 수' : 'Laps'}</p>
+                                  <p className="text-sm font-bold text-white">{laps.length}</p>
                                 </div>
                               )}
                             </div>
 
-                            {/* Extra details */}
-                            <div className="grid grid-cols-2 gap-2">
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold">
-                                  {language === 'ko' ? '시작 시간' : 'Started'}
-                                </p>
-                                <p className="text-sm font-semibold text-white/90">{startedAtLabel || '--'}</p>
-                              </div>
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold">
-                                  {language === 'ko' ? '랩 거리' : 'Lap Distance'}
-                                </p>
-                                <p className="text-sm font-semibold text-white/90">{lapDistanceLabel}</p>
-                              </div>
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold">
-                                  {language === 'ko' ? '시간 음성' : 'Time Voice'}
-                                </p>
-                                <p className="text-sm font-semibold text-white/90">{timeCueLabel}</p>
-                              </div>
-                              <div className="rounded-xl border border-white/10 bg-white/5 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold">
-                                  {language === 'ko' ? '페이스 가이드' : 'Pace Guide'}
-                                </p>
-                                <p className="text-sm font-semibold text-white/90">{paceGuideLabel}</p>
-                              </div>
-                            </div>
-
-                            {ghostResult && (
-                              <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/70 mb-1 font-bold">
-                                  {text.ghost?.title || 'Ghost mode'}
-                                </p>
-                                {ghostTargetLabel ? (
-                                  <p className="text-sm font-semibold text-white/90">
-                                    {language === 'ko' ? '도전 대상: ' : 'Target: '}{ghostTargetLabel}
-                                  </p>
-                                ) : null}
-                                <p className={`text-sm font-bold ${ghostResult.success ? 'text-emerald-200' : 'text-amber-200'}`}>
-                                  {ghostOutcomeLabel}{ghostDiffLabel ? ` · ${ghostDiffLabel}` : ''}
-                                </p>
+                            {/* Extra details - goal & ghost */}
+                            {(goalLabel || ghostResult) && (
+                              <div className="flex flex-wrap gap-1 text-[0.6rem]">
+                                {goalLabel && (
+                                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 border border-emerald-400/30 text-emerald-100 font-semibold">
+                                    {goalLabel}
+                                  </span>
+                                )}
+                                {ghostResult && (
+                                  <span className={`px-2 py-0.5 rounded-lg border font-semibold ${ghostResult.success ? 'bg-emerald-500/15 border-emerald-400/30 text-emerald-100' : 'bg-amber-500/15 border-amber-400/30 text-amber-100'}`}>
+                                    {ghostOutcomeLabel}{ghostDiffLabel ? ` ${ghostDiffLabel}` : ''}
+                                  </span>
+                                )}
                               </div>
                             )}
 
-                            {goalLabel && (
-                              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/70 mb-1 font-bold">
-                                  {language === 'ko' ? '목표' : 'Goal'}
-                                </p>
-                                <p className="text-sm font-semibold text-emerald-50">{goalLabel}</p>
-                              </div>
-                            )}
-
-                            {/* Lap Details */}
+                            {/* Lap Details - compact */}
                             {laps.length > 0 && (
-                              <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                                <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-2 font-bold">
+                              <div className="rounded-lg border border-white/10 bg-black/20 px-2 py-1">
+                                <p className="text-[0.5rem] uppercase tracking-wider text-white/60 font-bold mb-1">
                                   {text.summary.lapList}
                                 </p>
-                                <div className="max-h-32 space-y-1.5 overflow-y-auto pr-1 text-[0.7rem] text-white/70">
+                                <div className="max-h-20 space-y-0.5 overflow-y-auto text-[0.55rem] text-white/70">
                                   {laps.map((lap) => (
                                     <div
                                       key={lap.index}
-                                      className="flex items-center justify-between gap-2 rounded-lg bg-white/5 px-2 py-1.5"
+                                      className="flex items-center justify-between gap-1 rounded bg-white/5 px-1.5 py-0.5"
                                     >
-                                      <span className="font-bold text-white/80">
-                                        {language === 'ko' ? `${lap.index}구간` : `Lap ${lap.index}`}
-                                      </span>
+                                      <span className="font-bold text-white/80">{lap.index}</span>
                                       <span>{formatDistanceLabel(lap.distanceM, 2)}</span>
                                       <span>{formatClock(lap.durationMs)}</span>
                                       <span className="font-bold text-emerald-300">{formatPaceLabel(lap.paceMs)}</span>
@@ -941,17 +790,22 @@ export default function RunningHistoryOverlay({
             )}
           </div>
 
-          {/* Confirmation Button - Fixed at bottom, never scrolls */}
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-blue-500 py-4 text-base font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98] flex-shrink-0"
-            >
-              {language === 'ko' ? '확인' : 'OK'}
-            </button>
-          )}
         </div>
       </div>
+      {/* Confirmation Button - Fixed at bottom */}
+      {onClose && (
+        <div
+          className="flex-shrink-0 px-3 mx-auto w-full max-w-xl"
+          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)' }}
+        >
+          <button
+            onClick={onClose}
+            className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98]"
+          >
+            {language === 'ko' ? '확인' : 'OK'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

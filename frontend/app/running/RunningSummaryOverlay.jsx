@@ -102,21 +102,21 @@ export default function RunningSummaryOverlay({
   return (
     <div className="fixed inset-0 z-40 bg-slate-950">
       <div
-        className="flex h-full flex-col px-4"
+        className="flex h-full flex-col px-3"
         style={{
-          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 16px)',
-          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)',
+          paddingTop: 'calc(env(safe-area-inset-top, 0px) + 8px)',
+          paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
         }}
       >
         <div className="mx-auto flex w-full max-w-xl h-full flex-col">
           {/* Content area - Scrollable */}
-          <div className="flex-1 min-h-0 overflow-y-auto space-y-4 mb-4 scrollbar-hide">
+          <div className="flex-1 min-h-0 overflow-y-auto space-y-2 mb-3 scrollbar-hide">
             {/* Route Preview */}
-            <div className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 shadow-xl shadow-emerald-500/20">
+            <div className="relative overflow-hidden rounded-xl border border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 shadow-lg">
               {hasRoute ? (
                 <RunningRoutePreview points={routePoints} />
               ) : (
-                <div className="flex h-40 items-center justify-center px-4 py-6 text-center text-xs text-white/60">
+                <div className="flex h-28 items-center justify-center px-3 py-4 text-center text-[0.65rem] text-white/60">
                   {language === 'ko'
                     ? '경로를 표시할 만큼 GPS 데이터가 충분하지 않습니다.'
                     : 'Not enough GPS points were recorded to draw the route.'}
@@ -125,46 +125,42 @@ export default function RunningSummaryOverlay({
             </div>
 
             {/* Stats Grid with enhanced design */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {summaryStats && Object.entries(summaryStats).map(([key, value]) => {
-                // Determine gradient based on stat type
                 const isDistance = key.toLowerCase().includes('distance')
                 const isTime = key.toLowerCase().includes('time')
                 const isPace = key.toLowerCase().includes('pace')
 
                 let gradientClass = 'from-emerald-500/20 to-blue-500/10 border-emerald-400/30'
-                let glowClass = 'group-hover:shadow-emerald-500/30'
 
                 if (isTime) {
                   gradientClass = 'from-cyan-500/20 to-blue-500/10 border-cyan-400/30'
-                  glowClass = 'group-hover:shadow-cyan-500/30'
                 } else if (isPace) {
                   gradientClass = 'from-blue-500/20 to-emerald-500/10 border-blue-400/30'
-                  glowClass = 'group-hover:shadow-blue-500/30'
                 }
 
                 return (
                   <div
                     key={key}
-                    className={`group relative rounded-2xl border bg-gradient-to-br ${gradientClass} p-3 text-center shadow-md backdrop-blur-sm transition-all duration-200 hover:scale-[1.02] ${glowClass}`}
+                    className={`rounded-xl border bg-gradient-to-br ${gradientClass} px-2 py-1.5 text-center backdrop-blur-sm`}
                   >
-                    <div className="flex items-center justify-center gap-2 mb-1">
-                      <p className="text-[0.6rem] uppercase tracking-[0.2em] text-white/70 font-bold">
+                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                      <p className="text-[0.55rem] uppercase tracking-wider text-white/70 font-bold">
                         {value.label}
                       </p>
                       {helpTexts[language]?.[key] && (
                         <button
                           type="button"
                           onClick={() => setHelpKey((prev) => (prev === key ? null : key))}
-                          className="h-5 w-5 rounded-full border border-white/30 text-[0.65rem] font-black text-white/80 leading-none flex items-center justify-center bg-white/10"
+                          className="h-3.5 w-3.5 rounded-full border border-white/30 text-[0.5rem] font-black text-white/80 leading-none flex items-center justify-center bg-white/10"
                         >
                           ?
                         </button>
                       )}
                     </div>
-                    <p className="text-xl font-black text-white">{value.value}</p>
+                    <p className="text-base font-black text-white">{value.value}</p>
                     {helpKey === key && helpTexts[language]?.[key] && (
-                      <div className="mt-2 rounded-md bg-black/70 px-2 py-1 text-[0.65rem] text-white/80">
+                      <div className="mt-1 rounded-md bg-black/70 px-1.5 py-0.5 text-[0.55rem] text-white/80">
                         {helpTexts[language][key]}
                       </div>
                     )}
@@ -175,13 +171,13 @@ export default function RunningSummaryOverlay({
 
 	            {/* Weekly / Monthly running distance goals context (run mode only) */}
 	            {meta?.mode === 'run' && (Number.isFinite(meta.runWeeklyTotalDistanceM) || Number.isFinite(meta.runMonthlyTotalDistanceM)) && (
-	              <div className="rounded-2xl border border-emerald-400/30 bg-emerald-500/5 p-4 text-sm text-white/90 flex flex-col gap-2">
-	                <p className="text-[0.65rem] uppercase tracking-[0.25em] text-emerald-200 font-bold">
+	              <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/5 px-2 py-1.5 text-sm text-white/90">
+	                <p className="text-[0.55rem] uppercase tracking-wider text-emerald-200 font-bold mb-1">
 	                  {language === 'ko' ? '주간/월간 런닝 목표' : 'Weekly / Monthly running goals'}
 	                </p>
-	                <div className="grid grid-cols-2 gap-3">
+	                <div className="grid grid-cols-2 gap-1.5">
 	                  {Number.isFinite(meta.runWeeklyTotalDistanceM) && Number.isFinite(meta.runWeeklyTargetKm) && (
-	                    <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 px-3 py-2">
+	                    <div className="rounded-lg border border-emerald-400/30 bg-emerald-500/10 px-2 py-1">
 	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-emerald-100 font-semibold">
 	                        {language === 'ko' ? '이번 주' : 'This week'}
 	                      </p>
@@ -196,7 +192,7 @@ export default function RunningSummaryOverlay({
 	                    </div>
 	                  )}
 	                  {Number.isFinite(meta.runMonthlyTotalDistanceM) && Number.isFinite(meta.runMonthlyTargetKm) && (
-	                    <div className="rounded-xl border border-sky-400/30 bg-sky-500/10 px-3 py-2">
+	                    <div className="rounded-lg border border-sky-400/30 bg-sky-500/10 px-2 py-1">
 	                      <p className="text-[0.65rem] uppercase tracking-[0.18em] text-sky-100 font-semibold">
 	                        {language === 'ko' ? '이번 달' : 'This month'}
 	                      </p>
@@ -221,7 +217,7 @@ export default function RunningSummaryOverlay({
 
             {/* Extra Content */}
             {extraContent && (
-              <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 p-4 text-sm backdrop-blur-sm">
+              <div className="rounded-xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 px-2 py-1.5 text-sm backdrop-blur-sm">
                 {extraContent}
               </div>
             )}
@@ -231,7 +227,7 @@ export default function RunningSummaryOverlay({
           {onClose && (
             <button
               onClick={onClose}
-              className="w-full rounded-2xl bg-gradient-to-r from-emerald-500 to-blue-500 py-4 text-base font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/40 active:scale-[0.98] flex-shrink-0"
+              className="w-full rounded-xl bg-gradient-to-r from-emerald-500 to-blue-500 py-3 text-sm font-bold text-white shadow-lg shadow-emerald-500/30 transition-all duration-200 active:scale-[0.98] flex-shrink-0"
             >
               {language === 'ko' ? '확인' : 'OK'}
             </button>
@@ -388,33 +384,33 @@ function MetaDetails({ meta, language, modeTitle }) {
   ]
 
   return (
-    <div className="rounded-2xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 p-4 text-sm backdrop-blur-sm space-y-3">
-      <p className="text-xs uppercase tracking-[0.3em] text-white/60 font-bold">
+    <div className="rounded-xl border border-white/15 bg-gradient-to-br from-white/5 to-white/10 px-2 py-1.5 text-sm backdrop-blur-sm space-y-1.5">
+      <p className="text-[0.55rem] uppercase tracking-wider text-white/60 font-bold">
         {language === 'ko' ? '세부 정보' : 'Details'}
       </p>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-2 gap-1.5">
         {items.map((item) => (
           <div
             key={item.label}
-            className="rounded-xl border border-white/10 bg-black/20 p-3"
+            className="rounded-lg border border-white/10 bg-black/20 px-2 py-1"
           >
-            <p className="text-[0.65rem] uppercase tracking-wider text-white/60 mb-1 font-bold">{item.label}</p>
-            <p className="text-sm font-semibold text-white">{item.value}</p>
+            <p className="text-[0.5rem] uppercase tracking-wider text-white/60 font-bold">{item.label}</p>
+            <p className="text-xs font-semibold text-white">{item.value}</p>
           </div>
         ))}
       </div>
 
       {ghostResult && (
-        <div className="rounded-xl border border-cyan-400/30 bg-cyan-500/10 p-3">
-          <p className="text-[0.65rem] uppercase tracking-wider text-white/70 mb-1 font-bold">
+        <div className="rounded-lg border border-cyan-400/30 bg-cyan-500/10 px-2 py-1">
+          <p className="text-[0.5rem] uppercase tracking-wider text-white/70 font-bold">
             {language === 'ko' ? '고스트 모드' : 'Ghost mode'}
           </p>
           {ghostTargetLabel ? (
-            <p className="text-sm font-semibold text-white/90">
+            <p className="text-xs font-semibold text-white/90">
               {language === 'ko' ? '도전 대상: ' : 'Target: '}{ghostTargetLabel}
             </p>
           ) : null}
-          <p className={`text-sm font-bold ${ghostResult.success ? 'text-emerald-200' : 'text-amber-200'}`}>
+          <p className={`text-xs font-bold ${ghostResult.success ? 'text-emerald-200' : 'text-amber-200'}`}>
             {ghostOutcomeLabel}{ghostDiffLabel ? ` · ${ghostDiffLabel}` : ''}
           </p>
         </div>

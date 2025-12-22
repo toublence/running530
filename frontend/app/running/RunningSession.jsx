@@ -31,8 +31,8 @@ import { maybeRequestIgnoreBatteryOptimizations } from '../utils/activity-permis
 
 const MODE_META = {
   run: {
-    title: 'Running',
-    titleKo: '러닝',
+    title: 'Running530',
+    titleKo: 'Running530',
     gradient: 'from-emerald-400/30 via-blue-500/20 to-cyan-500/30',
     accentColor: 'emerald',
     defaultTimeCueMs: 5 * 60 * 1000,
@@ -422,7 +422,6 @@ export default function RunningSession({ mode }) {
 		  const [badgeBanner, setBadgeBanner] = useState(null)
 	  const [showGoalGuide, setShowGoalGuide] = useState(false)
   const [showSettingsGuide, setShowSettingsGuide] = useState(false)
-  const [showGhostGuide, setShowGhostGuide] = useState(false)
   const [ghostEnabled, setGhostEnabled] = useState(false)
   const [ghostTarget, setGhostTarget] = useState(null)
   const [ghostMessage, setGhostMessage] = useState('')
@@ -2382,9 +2381,6 @@ export default function RunningSession({ mode }) {
   const goalLabel = goalPreset ? formatGoalLabel(goalPreset, language) : ''
   const ghostTargetRecord = ghostTarget || ghostSessionRef.current?.targetRun || null
   const ghostTargetText = formatGhostLabel(ghostTargetRecord)
-  const ghostButtonLabel = ghostEnabled
-    ? (text.ghost?.disableButton || 'Cancel challenge')
-    : (text.ghost?.enableButton || 'Start challenge')
 
   // Live derived metrics
   const elapsedMinutesLive = elapsedMs > 0 ? elapsedMs / 60000 : 0
@@ -2561,7 +2557,6 @@ export default function RunningSession({ mode }) {
   const bannerSpaceHeight = hasBannerSpace
     ? (bannerAtTop ? BANNER_HEIGHT_PX : getBannerPlaceholderHeight(capPlatform))
     : 0
-  const recentPreviewCount = (capPlatform === 'ios' || capPlatform === 'android') ? 1 : 2
   const goalDistancePresets = [
     { value: 0, label: language === 'ko' ? '설정 안 함' : 'No goal' },
     { value: 1000, label: language === 'ko' ? '1km' : '1 km' },
@@ -2827,20 +2822,20 @@ export default function RunningSession({ mode }) {
 
               {/* Goal Selection */}
               <div className="flex-shrink-0">
-                <div className="mb-2 flex items-center gap-2">
-                  <p className="text-xs font-bold text-white/70 uppercase tracking-wider">
+                <div className="mb-1 flex items-center gap-1">
+                  <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
                     {text.goal.title}
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowGoalGuide(true)}
                     aria-label={language === 'ko' ? '목표 안내' : 'Goal help'}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.7rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
+                    className="flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
                   >
                     ?
                   </button>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-1.5">
                   <CustomDropdown
                     value={goalPreset?.type === 'distance' ? goalPreset.value : 0}
                     options={goalDistancePresets}
@@ -2867,15 +2862,10 @@ export default function RunningSession({ mode }) {
                       setGoalTimeDropdownOpen(next)
                     }}
                   />
-                </div>
-                <div className="mt-2 flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-3 py-2">
-                  <span className="text-xs text-white/70">
-                    {goalPreset ? goalLabel : text.goal.none}
-                  </span>
                   <button
                     type="button"
                     onClick={() => setGoalPreset(null)}
-                    className="text-xs font-bold text-emerald-300 hover:text-emerald-200 transition-colors"
+                    className="flex items-center justify-center rounded-xl border border-white/30 bg-white/10 px-2 py-1.5 text-[0.65rem] font-bold text-white/70 hover:border-white/50 transition-colors"
                   >
                     {text.goal.clear}
                   </button>
@@ -2883,39 +2873,26 @@ export default function RunningSession({ mode }) {
               </div>
 
               {/* Ghost Mode */}
-              <div className="flex-shrink-0 space-y-2">
-                <div className="flex items-center gap-2">
-                  <p className="text-xs font-bold text-white/70 uppercase tracking-wider">
-                    {text.ghost?.title || 'Ghost Mode'}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowGhostGuide((prev) => !prev)}
-                    aria-label={language === 'ko' ? '고스트 모드 안내' : 'Ghost mode help'}
-                    className="flex h-5 w-5 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.65rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
-                  >
-                    ?
-                  </button>
-                </div>
-                {showGhostGuide && (
-                  <div className="rounded-2xl border border-white/10 bg-white/5 px-3 py-2 text-xs text-white/70">
-                    {text.ghost?.subtitle || 'Challenge your past best run with the same settings.'}
+              <div className="flex-shrink-0">
+                <div className="flex items-center justify-between rounded-xl border border-white/15 bg-white/5 px-2 py-1.5">
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider flex-shrink-0">
+                      {text.ghost?.title || 'Ghost'}
+                    </p>
+                    <p className="text-[0.6rem] text-white/50 truncate">
+                      {ghostTargetText || (language === 'ko' ? '기록 도전' : 'Challenge')}
+                    </p>
                   </div>
-                )}
-                <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/15 bg-white/5 px-4 py-3">
-                  <p className="text-sm font-semibold text-white truncate">
-                    {ghostTargetText || ghostMessage || text.ghost?.subtitle}
-                  </p>
                   <button
                     type="button"
                     onClick={handleToggleGhost}
-                    className={`flex-shrink-0 rounded-full px-3 py-2 text-[0.75rem] font-bold transition-all duration-200 active:scale-95 ${
+                    className={`flex-shrink-0 rounded-lg px-2 py-1 text-[0.6rem] font-bold transition-all duration-200 active:scale-95 ${
                       ghostEnabled
                         ? 'bg-emerald-500/20 text-emerald-100 border border-emerald-400/40'
                         : 'bg-white/10 text-white/80 border border-white/20 hover:border-white/40'
                     }`}
                   >
-                    {ghostButtonLabel}
+                    {ghostEnabled ? (language === 'ko' ? '해제' : 'Off') : (language === 'ko' ? '시작' : 'On')}
                   </button>
                 </div>
               </div>
@@ -2927,20 +2904,20 @@ export default function RunningSession({ mode }) {
 
               {/* Settings Row */}
               <div className="flex-shrink-0">
-                <div className="mb-2 flex items-center gap-2">
-                  <p className="text-xs font-bold text-white/70 uppercase tracking-wider">
+                <div className="mb-1 flex items-center gap-1">
+                  <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
                     {language === 'ko' ? '설정' : 'Settings'}
                   </p>
                   <button
                     type="button"
                     onClick={() => setShowSettingsGuide(true)}
                     aria-label={language === 'ko' ? '설정 안내' : 'Settings help'}
-                    className="flex h-6 w-6 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.7rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
+                    className="flex h-4 w-4 items-center justify-center rounded-full border border-white/30 bg-white/10 text-[0.55rem] text-white/80 hover:border-white/60 hover:text-white transition-colors"
                   >
                     ?
                   </button>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-1.5">
                   <CustomDropdown
                     value={lapDistanceM}
                     options={[
@@ -2992,17 +2969,17 @@ export default function RunningSession({ mode }) {
                   <button
                     type="button"
                     onClick={() => setVoiceEnabled((prev) => !prev)}
-                    className={`flex w-full items-center justify-center rounded-2xl border-2 px-2 py-2 text-[0.75rem] font-bold shadow-lg transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-center rounded-xl border px-1 py-1.5 text-[0.7rem] font-bold transition-all duration-200 active:scale-95 ${
                       voiceEnabled
-                        ? 'border-emerald-400/70 bg-gradient-to-br from-emerald-500/30 to-emerald-600/20 text-emerald-100 hover:shadow-emerald-500/30'
-                        : 'border-white/30 bg-gradient-to-br from-black/40 to-black/20 text-white/70 hover:border-white/50'
+                        ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
+                        : 'border-white/30 bg-white/10 text-white/70 hover:border-white/50'
                     }`}
                   >
-                    {voiceEnabled ? text.setup.voiceOn : text.setup.voiceOff}
+                    {voiceEnabled ? (language === 'ko' ? '음성 On' : 'Voice On') : (language === 'ko' ? '음성 Off' : 'Voice Off')}
                   </button>
                 </div>
 
-                <div className="mt-2 grid grid-cols-2 gap-2">
+                <div className="mt-1.5 grid grid-cols-2 gap-1.5">
                   <button
                     type="button"
                     onClick={() => {
@@ -3014,14 +2991,14 @@ export default function RunningSession({ mode }) {
                         return next
                       })
                     }}
-                    className={`flex w-full items-center justify-between rounded-2xl border-2 px-2 py-2 text-[0.75rem] font-bold shadow-lg transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-between rounded-xl border px-2 py-1.5 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
                       preventScreenLock && !batterySaver
-                        ? 'border-emerald-400/70 bg-gradient-to-br from-emerald-500/20 to-emerald-600/20 text-emerald-100 hover:shadow-emerald-500/30'
-                        : 'border-white/30 bg-gradient-to-br from-black/40 to-black/30 text-white/80 hover:border-white/50'
+                        ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
+                        : 'border-white/30 bg-white/10 text-white/80 hover:border-white/50'
                     }`}
                   >
-                    <span className="truncate">{language === 'ko' ? '화면 꺼짐 방지' : 'Keep screen on'}</span>
-                    <span className="text-xs uppercase">
+                    <span className="truncate">{language === 'ko' ? '화면유지' : 'Screen'}</span>
+                    <span className="text-[0.6rem]">
                       {preventScreenLock && !batterySaver ? (language === 'ko' ? '켜짐' : 'On') : (language === 'ko' ? '꺼짐' : 'Off')}
                     </span>
                   </button>
@@ -3037,47 +3014,52 @@ export default function RunningSession({ mode }) {
                         return next
                       })
                     }}
-                    className={`flex w-full items-center justify-between rounded-2xl border-2 px-2 py-2 text-[0.75rem] font-bold shadow-lg transition-all duration-200 active:scale-95 ${
+                    className={`flex w-full items-center justify-between rounded-xl border px-2 py-1.5 text-[0.65rem] font-bold transition-all duration-200 active:scale-95 ${
                       batterySaver
-                        ? 'border-emerald-400/70 bg-gradient-to-br from-emerald-500/25 to-emerald-600/20 text-emerald-100 hover:shadow-emerald-500/30'
-                        : 'border-white/30 bg-gradient-to-br from-black/40 to-black/30 text-white/80 hover:border-white/50'
+                        ? 'border-emerald-400/70 bg-emerald-500/20 text-emerald-100'
+                        : 'border-white/30 bg-white/10 text-white/80 hover:border-white/50'
                     }`}
                   >
-                    <span className="truncate">{language === 'ko' ? '배터리 절약 모드' : 'Battery saver mode'}</span>
-                    <span className="text-xs uppercase">
+                    <span className="truncate">{language === 'ko' ? '배터리절약' : 'Battery'}</span>
+                    <span className="text-[0.6rem]">
                       {batterySaver ? (language === 'ko' ? '켜짐' : 'On') : (language === 'ko' ? '꺼짐' : 'Off')}
                     </span>
                   </button>
                 </div>
-                <p className="mt-1 text-[0.65rem] text-white/60 leading-snug">
-                  {language === 'ko'
-                    ? '배터리 절약 모드를 켜면 화면을 자동으로 끄고 타이머 갱신을 낮춰 전력을 줄입니다. 거리 정확도는 유지됩니다.'
-                    : 'Battery saver turns off screen wake locks and updates the timer less often to save power while keeping distance accuracy.'}
-                </p>
               </div>
 
-              {/* Recent Records Preview - Only show if there are records */}
+              {/* Recent Records Preview */}
               {modeHistory.length > 0 && (
                 <div className="flex-shrink-0">
-                  <div className="flex items-center justify-between mb-2">
-                    <p className="text-xs font-bold text-white/70 uppercase tracking-wider">
-                      {language === 'ko' ? '최근 기록' : 'Recent Records'}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <p className="text-[0.65rem] font-bold text-white/70 uppercase tracking-wider">
+                      {language === 'ko' ? '최근 기록' : 'Recent'}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => handleOpenHistory({})}
-                      className="text-xs font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
-                    >
-                      {language === 'ko' ? '전체보기 ›' : 'View All ›'}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = language === 'en' ? 'ko' : 'en'
+                          setLanguage(next)
+                          localStorage.setItem('locale', next)
+                        }}
+                        className="px-2 py-0.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] font-bold text-white/70 hover:border-white/50 transition-colors"
+                      >
+                        {language === 'en' ? 'EN' : 'KO'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenHistory({})}
+                        className="text-[0.65rem] font-bold text-emerald-400 hover:text-emerald-300 transition-colors"
+                      >
+                        {language === 'ko' ? '전체보기 ›' : 'View All ›'}
+                      </button>
+                    </div>
                   </div>
-
-                  <div className="space-y-2">
-                    {modeHistory.slice(0, recentPreviewCount).map((entry, idx) => {
-                      // Use startedAt or timestamp, whichever is available
+                  <div className="space-y-1.5">
+                    {modeHistory.slice(0, 2).map((entry, idx) => {
                       const timestamp = entry.startedAt || entry.timestamp
                       const entryDate = timestamp ? new Date(timestamp) : null
-
                       let dateStr = language === 'ko' ? '날짜 없음' : 'No date'
                       if (entryDate && !isNaN(entryDate.getTime())) {
                         if (language === 'ko') {
@@ -3086,7 +3068,6 @@ export default function RunningSession({ mode }) {
                           dateStr = entryDate.toLocaleDateString('en', { month: 'short', day: 'numeric' })
                         }
                       }
-
                       const entryId = entry.id || entry.startedAt || entry.timestamp || `recent-${idx}`
                       return (
                         <button
@@ -3096,20 +3077,20 @@ export default function RunningSession({ mode }) {
                             setHistoryInitialSort('recent')
                             handleOpenHistory({ entryId })
                           }}
-                          className="w-full text-left rounded-xl border border-white/10 bg-gradient-to-r from-white/5 to-white/10 p-3 backdrop-blur-sm hover:border-white/20 transition-all duration-200"
+                          className="w-full text-left rounded-xl border border-white/10 bg-white/5 px-3 py-2 hover:border-white/20 transition-all duration-200"
                         >
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm font-bold text-white/90">
                                 {formatDistanceLabel(entry.distanceM)}
                               </p>
-                              <p className="text-xs text-white/50">{dateStr}</p>
+                              <p className="text-[0.6rem] text-white/50">{dateStr}</p>
                             </div>
                             <div className="text-right">
                               <p className="text-xs font-bold text-emerald-300">
                                 {formatClock(entry.durationMs)}
                               </p>
-                              <p className="text-xs text-white/50">
+                              <p className="text-[0.6rem] text-white/50">
                                 {formatPaceLabel(entry.avgPaceMs)}
                               </p>
                             </div>
@@ -3118,6 +3099,23 @@ export default function RunningSession({ mode }) {
                       )
                     })}
                   </div>
+                </div>
+              )}
+
+              {/* Language selector when no history */}
+              {modeHistory.length === 0 && (
+                <div className="flex-shrink-0 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const next = language === 'en' ? 'ko' : 'en'
+                      setLanguage(next)
+                      localStorage.setItem('locale', next)
+                    }}
+                    className="px-2 py-0.5 rounded-full border border-white/30 bg-white/10 text-[0.6rem] font-bold text-white/70 hover:border-white/50 transition-colors"
+                  >
+                    {language === 'en' ? 'EN' : 'KO'}
+                  </button>
                 </div>
               )}
 
@@ -3322,10 +3320,10 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full rounded-2xl border border-white/30 bg-white/10 px-3 py-3 text-xs font-semibold text-white shadow-lg hover:border-white/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-between"
+        className="w-full rounded-xl border border-white/30 bg-white/10 px-2 py-1.5 text-[0.7rem] font-semibold text-white hover:border-white/50 transition-all duration-200 backdrop-blur-sm flex items-center justify-between"
       >
-        <span>{selectedOption?.label || label}</span>
-        <span className={`text-white/80 text-sm transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
+        <span className="truncate">{selectedOption?.label || label}</span>
+        <span className={`text-white/60 text-[0.6rem] ml-1 transition-transform duration-200 ${open ? 'rotate-180' : ''}`}>▼</span>
       </button>
 
       {open && (
@@ -3336,11 +3334,14 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
             onClick={() => setOpen(false)}
           />
 
-          {/* Dropdown menu */}
+          {/* Dropdown menu - fixed position to prevent layout shift */}
           <div
             ref={menuRef}
-            className="absolute bottom-full left-0 right-0 mb-1 rounded-2xl border border-white/30 bg-slate-900/95 backdrop-blur-xl shadow-2xl z-20 max-h-64 overflow-y-auto"
+            className="fixed left-4 right-4 bottom-1/3 rounded-xl border border-white/30 bg-slate-900/98 backdrop-blur-xl shadow-2xl z-50 max-h-48 overflow-y-auto"
           >
+            <div className="px-2 py-1.5 text-[0.65rem] font-bold text-white/50 uppercase tracking-wider border-b border-white/10">
+              {label}
+            </div>
             {options.map((option) => (
               <button
                 key={option.value}
@@ -3350,7 +3351,7 @@ function CustomDropdown({ value, options, onChange, label, open, setOpen }) {
                   onChange(option.value)
                   setOpen(false)
                 }}
-                className={`w-full px-3 py-3 text-xs font-semibold text-left transition-all duration-150 ${
+                className={`w-full px-2 py-2 text-[0.7rem] font-semibold text-left transition-all duration-150 ${
                   value === option.value
                     ? 'bg-emerald-500/30 text-emerald-100'
                     : 'text-white/90 hover:bg-white/10'
