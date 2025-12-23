@@ -20,7 +20,6 @@ import {
 import { DistanceCalculator } from '../utils/DistanceCalculator'
 import { unlockTTS, speakOnce, stopAllTTS, forceUnduck } from '../realtime-mediapipe/tts'
 import { requestWakeLock, releaseWakeLock, isWakeLockActive } from '../utils/wake-lock'
-import { showBannerAd, hideBannerAd, prepareInterstitialAd, showInterstitialAd } from '../utils/admobHelper'
 import { ScreenOrientation } from '@capacitor/screen-orientation'
 import {
   SESSION_TEXT,
@@ -45,8 +44,6 @@ const LAP_DISTANCE_STORAGE_KEY = 'running_lap_distance_m'
 const TIME_CUE_STORAGE_KEY = 'running_time_cue_ms'
 const PACE_TARGET_STORAGE_KEY = 'running_target_pace_ms'
 const GOAL_STORAGE_KEY = 'running_goal_v1'
-const HISTORY_AD_LAST_SHOWN_KEY = 'running_interstitial_last_shown_ts'
-const HISTORY_AD_COOLDOWN_MS = 60 * 60 * 1000
 const MIN_DISTANCE_DELTA = 3.0 // 최소 거리 필터 강화: GPS Drift 방지 (이전: 0.7m → 3.0m)
 const CURRENT_PACE_WINDOW_MS = 20000
 const CURRENT_PACE_MIN_DISTANCE_M = 3
@@ -98,26 +95,6 @@ const requestDeviceMotionPermission = async () => {
   } catch {
     return false
   }
-}
-
-const BANNER_AD_UNITS = {
-  android: '',
-  ios: '',
-}
-
-const INTERSTITIAL_AD_UNITS = {
-  android: '',
-  ios: '',
-}
-
-const BANNER_HEIGHT_PX = 50
-// Extra gap between the bottom of the banner and the Running card
-const IOS_BANNER_EXTRA_GAP_PX = -10
-const ANDROID_BANNER_EXTRA_GAP_PX = 8
-const getBannerPlaceholderHeight = (platform) => {
-  if (platform === 'ios') return BANNER_HEIGHT_PX + IOS_BANNER_EXTRA_GAP_PX
-  if (platform === 'android') return BANNER_HEIGHT_PX + ANDROID_BANNER_EXTRA_GAP_PX
-  return BANNER_HEIGHT_PX
 }
 
 const resolveCapacitorPlatform = () => {
@@ -321,7 +298,6 @@ export default function RunningSession({ mode }) {
   const [lapAlert, setLapAlert] = useState(null)
   const [capPlatform, setCapPlatform] = useState(() => resolveCapacitorPlatform())
   const safeAreaTop = useSafeAreaTop()
-  const [bannerStatus, setBannerStatus] = useState('hidden') // 'hidden' | 'loading' | 'visible' | 'error' | 'unavailable'
   const [language, setLanguage] = useState(() => {
     if (typeof window === 'undefined') return 'en'
     const saved = localStorage.getItem('locale') || ''
@@ -374,7 +350,6 @@ export default function RunningSession({ mode }) {
     const saved = localStorage.getItem('running_battery_saver')
     return saved === 'true'
   })
-	  const [sessionKeepAwake, setSessionKeepAwake] = useState(false)
 	  const [runGoalConfig, setRunGoalConfig] = useState(() => {
 	    if (typeof window === 'undefined') return makeDefaultRunGoals()
 	    try {
@@ -488,12 +463,7 @@ export default function RunningSession({ mode }) {
   const goalRef = useRef(null)
   const goalReachedRef = useRef(false)
   const lastTimeCueRef = useRef(null)
-  const bannerAnchorRef = useRef(null)
   const smoothedSpeedRef = useRef(null) // Smoothed speed in m/s for better current pace
-  const lastHistoryAdShownRef = useRef(0)
-  const androidBackCleanupRef = useRef(null)
-  const lockHistoryPushedRef = useRef(false)
-  const suppressPopstateRef = useRef(false)
   const ghostSessionRef = useRef({ enabled: false, targetRun: null, lapsTimeline: [], nextKmIndex: 1 })
   const metricsRef = useRef(null)
   const pausedIntervalsRef = useRef([])
@@ -623,10 +593,6 @@ export default function RunningSession({ mode }) {
   }, [])
 
 
-  const blockLockedInteraction = useCallback((e) => {
-    try { e?.preventDefault?.() } catch {}
-    try { e?.stopPropagation?.() } catch {}
-  }, [])
 
   const handleSelectGoalPreset = useCallback((preset) => {
     if (!preset || preset.value === 0) {
@@ -795,50 +761,11 @@ export default function RunningSession({ mode }) {
     // 고스트 도전 시 목표 자동 설정하지 않음 (거리/시간 그대로 유지)
   }, [resolveRecordDistance])
 
-  const pickInterstitialAdId = useCallback(() => {
-    return capPlatform === 'ios' ? INTERSTITIAL_AD_UNITS.ios : INTERSTITIAL_AD_UNITS.android
-  }, [capPlatform])
-
-  const markHistoryAdShown = useCallback((timestamp = Date.now()) => {
-    const ts = Number(timestamp) || Date.now()
-    lastHistoryAdShownRef.current = ts
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.setItem(HISTORY_AD_LAST_SHOWN_KEY, String(ts))
-      } catch {}
-    }
-  }, [])
-
-  const shouldThrottleHistoryAd = useCallback(() => {
-    const lastShown = lastHistoryAdShownRef.current || 0
-    if (!lastShown) return false
-    return Date.now() - lastShown < HISTORY_AD_COOLDOWN_MS
-  }, [])
-
-  const showHistoryInterstitialAd = useCallback(async () => {
-    if (shouldThrottleHistoryAd()) return false
-    const adId = pickInterstitialAdId()
-    if (!adId) return false
-    try {
-      const prepared = await prepareInterstitialAd(adId)
-      if (!prepared) return false
-      const shown = await showInterstitialAd()
-      if (shown) {
-        markHistoryAdShown()
-      }
-      return shown
-    } catch (err) {
-      console.warn('[running] interstitial history error', err)
-      return false
-    }
-  }, [markHistoryAdShown, pickInterstitialAdId, shouldThrottleHistoryAd])
-
-  const handleOpenHistory = useCallback(async ({ entryId = null, sort = null } = {}) => {
+  const handleOpenHistory = useCallback(({ entryId = null, sort = null } = {}) => {
     if (sort) setHistoryInitialSort(sort)
     setHistoryExpandedId(entryId || null)
-    try { await showHistoryInterstitialAd() } catch (err) { console.warn('[running] show history ad failed', err) }
     setShowHistory(true)
-  }, [showHistoryInterstitialAd])
+  }, [])
 
   const handleToggleGhost = useCallback(() => {
     if (ghostEnabled) {
@@ -1316,129 +1243,6 @@ export default function RunningSession({ mode }) {
     }
   }, [anyDropdownOpen])
 
-  // Auto-activate screen lock when session starts
-  useEffect(() => {
-    if (!sessionActive) {
-      setSessionKeepAwake(false)
-      return
-    }
-    if (resolvedMode === 'walk') {
-      setSessionKeepAwake(false)
-      return
-    }
-    // 배터리 절약 모드가 켜지면 화면 항상 켜기 비활성화
-    setSessionKeepAwake(!batterySaver && preventScreenLock)
-  }, [sessionActive, preventScreenLock, batterySaver, resolvedMode])
-
-  // Global flag for screen lock status
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const locked = sessionActive && sessionKeepAwake
-    if (locked) {
-      window.__MOTIONFIT_SCREEN_LOCK_ACTIVE__ = true
-    } else if (window.__MOTIONFIT_SCREEN_LOCK_ACTIVE__) {
-      window.__MOTIONFIT_SCREEN_LOCK_ACTIVE__ = false
-    }
-    return () => {
-      if (typeof window !== 'undefined') {
-        window.__MOTIONFIT_SCREEN_LOCK_ACTIVE__ = false
-      }
-    }
-  }, [sessionActive, sessionKeepAwake])
-
-  // Web History API - Block browser back button
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    if (!sessionKeepAwake) return
-
-    const blockPopstate = (event) => {
-      if (!sessionKeepAwake || suppressPopstateRef.current) return
-      try { event?.preventDefault?.() } catch {}
-      try { event?.stopPropagation?.() } catch {}
-      try { window.history.go(1) } catch {}
-    }
-
-    try {
-      window.history.pushState({ __runningLock: Date.now() }, document.title, window.location.href)
-      lockHistoryPushedRef.current = true
-    } catch {}
-
-    window.addEventListener('popstate', blockPopstate)
-
-    return () => {
-      window.removeEventListener('popstate', blockPopstate)
-      if (lockHistoryPushedRef.current) {
-        suppressPopstateRef.current = true
-        try { window.history.back() } catch {}
-        setTimeout(() => { suppressPopstateRef.current = false }, 200)
-        lockHistoryPushedRef.current = false
-      }
-    }
-  }, [sessionKeepAwake])
-
-  // Hardware back button - Block Android back button during session lock
-  useEffect(() => {
-    const cleanupExisting = () => {
-      if (androidBackCleanupRef.current) {
-        try { androidBackCleanupRef.current() } catch {}
-        androidBackCleanupRef.current = null
-      }
-    }
-    cleanupExisting()
-    if (!sessionKeepAwake) return
-
-    const cleanupFns = []
-
-    // Cordova backbutton
-    if (typeof document !== 'undefined') {
-      const blockHardwareBack = (e) => {
-        try { e?.preventDefault?.() } catch {}
-        try { e?.stopPropagation?.() } catch {}
-        return false
-      }
-      document.addEventListener('backbutton', blockHardwareBack, true)
-      cleanupFns.push(() => document.removeEventListener('backbutton', blockHardwareBack, true))
-    }
-
-    // Window backbutton
-    if (typeof window !== 'undefined') {
-      const blockHardwareBackWindow = (e) => {
-        try { e?.preventDefault?.() } catch {}
-        try { e?.stopPropagation?.() } catch {}
-        return false
-      }
-      window.addEventListener('backbutton', blockHardwareBackWindow, true)
-      cleanupFns.push(() => window.removeEventListener('backbutton', blockHardwareBackWindow, true))
-
-      const blockHardwareBackPress = (e) => {
-        try { e?.preventDefault?.() } catch {}
-        try { e?.stopPropagation?.() } catch {}
-        return false
-      }
-      window.addEventListener('hardwarebackpress', blockHardwareBackPress, true)
-      cleanupFns.push(() => window.removeEventListener('hardwarebackpress', blockHardwareBackPress, true))
-    }
-
-    // Capacitor App
-    const cap = typeof window !== 'undefined' ? window.Capacitor?.App : null
-    if (cap?.addListener) {
-      try {
-        cap.addListener('backButton', (event) => {
-          try { event?.preventDefault?.() } catch {}
-          try { event?.stopImmediatePropagation?.() } catch {}
-          return false
-        }).then((listener) => {
-          cleanupFns.push(() => listener?.remove?.())
-        }).catch(() => {})
-      } catch {}
-    }
-
-    androidBackCleanupRef.current = () => {
-      cleanupFns.forEach(fn => { try { fn() } catch {} })
-    }
-
-    return () => cleanupExisting()
-  }, [sessionKeepAwake])
 
   // Hardware back button - Handle overlay back navigation (stats/history)
   useEffect(() => {
@@ -1550,11 +1354,7 @@ export default function RunningSession({ mode }) {
   }, [sessionActive])
 
   useEffect(() => {
-    if (!sessionActive) {
-      releaseWakeLock().catch(() => {})
-      return
-    }
-    if (isPaused || !sessionKeepAwake) {
+    if (!sessionActive || isPaused) {
       releaseWakeLock().catch(() => {})
       return
     }
@@ -1572,49 +1372,12 @@ export default function RunningSession({ mode }) {
       document.removeEventListener('visibilitychange', onVisibility)
       releaseWakeLock().catch(() => {})
     }
-  }, [sessionActive, isPaused, sessionKeepAwake])
-
-  useEffect(() => {
-    // 배너 광고는 러닝 중(sessionActive && !isPaused)에만 표시
-    const shouldShowBanner = sessionActive && !isPaused
-    const adId = capPlatform === 'ios' ? BANNER_AD_UNITS.ios : BANNER_AD_UNITS.android
-
-    if (!shouldShowBanner || !adId) {
-      setBannerStatus('unavailable')
-      hideBannerAd().catch(() => {})
-      return
-    }
-
-    const bannerPosition = capPlatform === 'ios' ? 'TOP_CENTER' : 'BOTTOM_CENTER'
-    const bannerMargin = capPlatform === 'ios' ? -10 : 0
-
-    let cancelled = false
-    setBannerStatus('loading')
-    ;(async () => {
-      try {
-        if (cancelled) return
-        const ok = await showBannerAd({ adId, position: bannerPosition, adSize: 'BANNER', margin: bannerMargin })
-        if (!cancelled) {
-          setBannerStatus(ok ? 'visible' : 'unavailable')
-        }
-      } catch (err) {
-        if (!cancelled) {
-          console.log('[running] banner ad error', err?.message || err)
-          setBannerStatus('error')
-        }
-      }
-    })()
-    return () => {
-      cancelled = true
-      hideBannerAd().catch(() => {})
-    }
-  }, [capPlatform, sessionActive, isPaused])
+  }, [sessionActive, isPaused])
 
   useEffect(() => {
     return () => {
       stopTracking()
       releaseWakeLock().catch(() => {})
-      hideBannerAd().catch(() => {})
       stopIdlePoll()
     }
   }, [resolvedMode, stopTracking, stopIdlePoll])
@@ -2551,11 +2314,6 @@ export default function RunningSession({ mode }) {
 
   const runningSectionMarginClass = 'mt-3'
   const stackSpacingClass = capPlatform === 'ios' ? 'space-y-1' : 'space-y-2'
-  const bannerAtTop = capPlatform === 'ios'
-  const hasBannerSpace = (capPlatform === 'ios' || capPlatform === 'android')
-  const bannerSpaceHeight = hasBannerSpace
-    ? (bannerAtTop ? BANNER_HEIGHT_PX : getBannerPlaceholderHeight(capPlatform))
-    : 0
   const goalDistancePresets = [
     { value: 0, label: language === 'ko' ? '설정 안 함' : 'No goal' },
     { value: 1000, label: language === 'ko' ? '1km' : '1 km' },
@@ -2593,13 +2351,7 @@ export default function RunningSession({ mode }) {
     : []
 
   return (
-    <div
-      className={stackSpacingClass}
-      style={{
-        paddingBottom: bannerAtTop ? 0 : bannerSpaceHeight,
-        paddingTop: bannerAtTop ? bannerSpaceHeight : 0,
-      }}
-    >
+    <div className={stackSpacingClass}>
       {error && (
         <div className="rounded-2xl border border-rose-400/30 bg-rose-500/10 p-4 text-sm text-rose-100">
           {error}
@@ -2629,23 +2381,6 @@ export default function RunningSession({ mode }) {
 	            </div>
 	          )}
 
-          {/* Screen Lock Overlay - Blocks all touches except lock button */}
-          {sessionKeepAwake && (
-            <div
-              className="fixed inset-0 bg-transparent pointer-events-auto"
-              style={{ touchAction: 'none', zIndex: 60 }}
-              onPointerDown={blockLockedInteraction}
-              onPointerMove={blockLockedInteraction}
-              onPointerUp={blockLockedInteraction}
-              onTouchStart={blockLockedInteraction}
-              onTouchEnd={blockLockedInteraction}
-              onClick={blockLockedInteraction}
-            >
-              <span className="sr-only">
-                {language === 'ko' ? '잠금 모드가 활성화되었습니다. 잠금 아이콘을 눌러 해제하세요.' : 'Screen lock active. Tap the lock icon to unlock.'}
-              </span>
-            </div>
-          )}
 
           {/* Main Timer Display - 중앙 대형 타이머 */}
           <section className={`${runningSectionMarginClass} rounded-3xl border-2 border-emerald-400/30 bg-gradient-to-br from-emerald-500/10 via-blue-500/5 to-cyan-500/10 p-5 md:p-8 lg:p-10 text-white shadow-2xl backdrop-blur-xl transition-all duration-300`}>
@@ -2767,42 +2502,6 @@ export default function RunningSession({ mode }) {
                     <div className="relative flex flex-col items-center justify-center gap-0.5">
                       <span className="text-3xl md:text-4xl lg:text-5xl">■</span>
                       <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-rose-100">{text.controls.end}</span>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (batterySaver) {
-                        setSessionKeepAwake(false)
-                        return
-                      }
-                      setSessionKeepAwake(prev => !prev)
-                    }}
-                    disabled={!sessionActive}
-                    className="group relative flex h-20 w-20 md:h-28 md:w-28 lg:h-32 lg:w-32 flex-col items-center justify-center gap-1 rounded-full border-2 border-white/40 bg-gradient-to-br from-white/20 to-black/30 text-white shadow-xl backdrop-blur-sm transition-all duration-200 active:scale-95 hover:border-white/60 disabled:opacity-60"
-                    style={{ zIndex: 70 }}
-                  >
-                    <div className="absolute inset-0 rounded-full bg-white/10 blur-lg group-hover:bg-white/20 transition-all"></div>
-                    <div className="relative flex flex-col items-center justify-center gap-0.5">
-                      {sessionKeepAwake ? (
-                        <svg className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M8.25 10V7.5a3.75 3.75 0 117.5 0V10" />
-                          <rect x="6" y="10" width="12" height="10" rx="2" />
-                          <circle cx="12" cy="15" r="1.5" fill="currentColor" />
-                        </svg>
-                      ) : (
-                        <svg className="w-8 h-8 md:w-10 md:h-10 lg:w-12 lg:h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M9 10V6.5a3 3 0 016 0" />
-                          <path d="M9 6.5L6 4.5" strokeWidth="1.5" />
-                          <path d="M7 4L5.5 3" strokeWidth="1.5" />
-                          <rect x="6" y="10" width="12" height="10" rx="2" />
-                          <circle cx="12" cy="15" r="1.5" fill="currentColor" />
-                        </svg>
-                      )}
-                      <span className="text-[0.55rem] md:text-xs lg:text-sm font-bold uppercase tracking-wider text-white">
-                        {sessionKeepAwake ? (language === 'ko' ? '잠금' : 'Lock') : (language === 'ko' ? '해제' : 'Unlock')}
-                      </span>
                     </div>
                   </button>
             </div>

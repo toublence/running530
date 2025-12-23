@@ -14,7 +14,6 @@
         "node": "20.x"
     },
     "dependencies": {
-        "@capacitor-community/admob": "^7.0.3",
         "@capacitor-community/text-to-speech": "^6.0.0",
         "@capacitor/android": "^7.4.3",
         "@capacitor/app": "^7.1.0",
@@ -24,10 +23,7 @@
         "@capacitor/ios": "^7.4.4",
         "@capacitor/screen-orientation": "^7.0.2",
         "@capacitor/status-bar": "^7.0.3",
-        "capacitor-admob-ads": "^5.0.0",
-        "capacitor-plugin-app-tracking-transparency": "^2.0.5",
         "cordova-plugin-android-permissions": "^1.1.5",
-        "cordova-plugin-pedometer": "^0.4.1",
         "framer-motion": "^10.16.4",
         "lucide-react": "^0.294.0",
         "next": "14.0.3",

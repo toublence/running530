@@ -45,15 +45,11 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
-	<key>GADApplicationIdentifier</key>
-	<string>ca-app-pub-3940256099942544~1458002511</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Running sessions use GPS to track distance and pace.</string>
 	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
 	<string>Running sessions use GPS to track distance and pace.</string>
 	<key>NSMotionUsageDescription</key>
-	<string>Motion data is used to count steps and analyze physical activity.</string>
-	<key>NSUserTrackingUsageDescription</key>
-	<string>This app displays personalized ads. Your data will be used to provide you with personalized ads and improve ad performance.</string>
+	<string>Motion data is used to analyze your running activity.</string>
 </dict>
 </plist>

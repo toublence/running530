@@ -1,8 +1,6 @@
 import './globals.css'
 import CameraCleanup from './components/CameraCleanup'
 import PwaInit from './PwaInit'
-import TrackingTransparencyPrompt from './components/TrackingTransparencyPrompt'
-
 import SafeAreaBottomInset from './components/SafeAreaBottomInset'
 import RouteDepthTracker from './components/RouteDepthTracker'
 import BackButtonGuard from './components/BackButtonGuard'
@@ -27,8 +25,6 @@ export default function RootLayout({ children }) {
       </head>
       <body className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 font-sans antialiased">
         <PwaInit />
-        <TrackingTransparencyPrompt />
-
         <RouteDepthTracker />
         <BackButtonGuard />
         <PortraitOrientationManager />
